@@ -31,3 +31,17 @@ def parts_to_unified(parts: Mapping[str, np.ndarray]) -> np.ndarray:
     return np.concatenate(blocks, axis=1)
 
 
+def fetch_lsfb_remote(
+    instance_id: str, raw: bool = True, source: str = LSFB_SOURCE, timeout: float = 60.0
+) -> np.ndarray:
+    """Download the four part files of one instance and return the unified sequence.
+
+    Nothing is written to disk: only the unified subset is kept by the caller.
+    """
+    folder = "poses_raw" if raw else "poses"
+    parts = {}
+    for p in LSFB_PARTS:
+        url = f"{source}/{folder}/{p}/{instance_id}.npy"
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            parts[p] = np.load(io.BytesIO(r.read()))
+    return parts_to_unified(parts)
