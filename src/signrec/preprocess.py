@@ -7,3 +7,5 @@ Order of operations: trim, canonical hand (mirror), spatial normalisation, fixed
 features, NaN to 0.
 """
 
+from __future__ import annotations
+
