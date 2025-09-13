@@ -13,6 +13,15 @@ import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+from omegaconf import OmegaConf
+from tqdm import tqdm
+
+from signrec.io.lsfb import fetch_lsfb_remote
+from signrec.store import PackedWriter
+
+
 def select_vocabulary(instances: pd.DataFrame, top_n: int, min_signers: int) -> list[str]:
     """Most frequent signs among those performed by at least ``min_signers`` signers."""
     g = instances.groupby("sign").agg(n=("id", "size"), signers=("signer", "nunique"))
@@ -74,3 +83,5 @@ def main() -> None:
     print(f"wrote {len(kept)} sequences to {out}")
 
 
+if __name__ == "__main__":
+    main()
