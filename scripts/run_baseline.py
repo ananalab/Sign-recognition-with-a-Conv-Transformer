@@ -13,3 +13,13 @@ import json
 import time
 from pathlib import Path
 
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+
+from signrec.baseline import build_stat_matrix  # torch-free: avoids an OpenMP clash with LightGBM
+from signrec.metrics import summary
+from signrec.preprocess import PreprocessConfig
+from signrec.splits import load_split, split_indices
+from signrec.store import PackedDataset
+

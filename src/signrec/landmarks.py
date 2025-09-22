@@ -33,3 +33,24 @@ LIPS_IDX: Final[tuple[int, ...]] = (
     95, 88, 178, 87, 14, 317, 402, 318, 324, 308,
 )  # fmt: skip
 
+# (part name, source part in MediaPipe output, indices within that part)
+GROUPS: Final[tuple[tuple[str, str, tuple[int, ...]], ...]] = (
+    ("left_hand", "left_hand", HAND_IDX),
+    ("right_hand", "right_hand", HAND_IDX),
+    ("pose", "pose", POSE_IDX),
+    ("lips", "face", LIPS_IDX),
+)
+
+N_LANDMARKS: Final[int] = sum(len(idx) for _, _, idx in GROUPS)  # 89
+
+
+def part_slices() -> dict[str, slice]:
+    """Return the slice of each part in the unified landmark axis."""
+    out: dict[str, slice] = {}
+    start = 0
+    for name, _, idx in GROUPS:
+        out[name] = slice(start, start + len(idx))
+        start += len(idx)
+    return out
+
+

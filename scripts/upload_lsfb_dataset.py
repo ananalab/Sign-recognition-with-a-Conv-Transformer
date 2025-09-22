@@ -47,3 +47,5 @@ def main() -> None:
     subprocess.run(cmd, check=True)
 
 
+if __name__ == "__main__":
+    main()
