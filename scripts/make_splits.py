@@ -6,6 +6,14 @@ uv run python scripts/make_splits.py --dataset lsfb_isol
 
 from __future__ import annotations
 
+import argparse
+import json
+from pathlib import Path
+
+import pandas as pd
+
+from signrec.splits import random_split, save_split, signer_split, split_indices
+
 def lsfb_selection_report(index: pd.DataFrame, split: dict) -> None:
     """Vocabulary-selection statistics quoted in the paper."""
     inst = pd.read_csv(ROOT / "data/raw/lsfb_isol/instances.csv")

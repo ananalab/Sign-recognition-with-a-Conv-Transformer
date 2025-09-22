@@ -44,3 +44,11 @@ def test_canonical_hand_moves_dominant_to_right_slot() -> None:
     assert np.isnan(out[:, SLICES["left_hand"]]).all()
 
 
+def test_mirrored_input_gives_same_features() -> None:
+    seq = random_sequence()
+    seq[:, SLICES["right_hand"]] = np.nan
+    a, _ = preprocess(seq, CFG)
+    b, _ = preprocess(mirror(seq), CFG)
+    np.testing.assert_allclose(a, b, atol=1e-4)
+
+

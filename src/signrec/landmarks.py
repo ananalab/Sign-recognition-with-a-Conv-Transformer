@@ -54,3 +54,10 @@ def part_slices() -> dict[str, slice]:
     return out
 
 
+SLICES: Final[dict[str, slice]] = part_slices()
+
+# Positions (in the unified axis) of a few body anchors used by preprocessing.
+POSE_POS: Final[dict[str, int]] = {
+    name: SLICES["pose"].start + i for i, name in enumerate(POSE_NAMES)
+}
+
