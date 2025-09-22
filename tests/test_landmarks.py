@@ -14,3 +14,17 @@ def test_subset_size_and_order() -> None:
     assert len(set(lm.LIPS_IDX)) == 40
 
 
+def test_mirror_permutation_is_involution() -> None:
+    perm = np.array(lm.mirror_permutation())
+    assert sorted(perm) == list(range(lm.N_LANDMARKS))
+    assert (perm[perm] == np.arange(lm.N_LANDMARKS)).all()
+    assert perm[0] == 21 and perm[21] == 0
+    assert perm[lm.POSE_POS["l_wrist"]] == lm.POSE_POS["r_wrist"]
+    assert perm[lm.POSE_POS["nose"]] == lm.POSE_POS["nose"]
+
+
+def test_skeleton_edges_valid() -> None:
+    edges = lm.skeleton_edges()
+    assert all(0 <= a < lm.N_LANDMARKS and 0 <= b < lm.N_LANDMARKS for a, b in edges)
+    lips = [e for e in edges if e[0] >= 49]
+    assert len(lips) == 40  # two closed rings of 20

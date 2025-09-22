@@ -28,3 +28,21 @@ def make_kaggle_long(n_frames: int = 5, missing_left: bool = True, seed: int = 0
     return pd.DataFrame(rows, columns=["frame", "row_id", "type", "landmark_index", "x", "y", "z"])
 
 
+@pytest.fixture
+def kaggle_parquet(tmp_path):
+    p = tmp_path / "seq.parquet"
+    make_kaggle_long().to_parquet(p)
+    return p
+
+
+def random_sequence(T: int = 30, seed: int = 0, nan_left: bool = False) -> np.ndarray:
+    """Plausible random sequence in the unified format."""
+    from signrec.landmarks import N_LANDMARKS, POSE_POS, SLICES
+
+    rng = np.random.default_rng(seed)
+    seq = (0.5 + 0.1 * rng.standard_normal((T, N_LANDMARKS, 3))).astype(np.float32)
+    seq[:, POSE_POS["l_shoulder"], :2] = [0.65, 0.6]  # image-left = signer's left shoulder
+    seq[:, POSE_POS["r_shoulder"], :2] = [0.35, 0.6]
+    if nan_left:
+        seq[:, SLICES["left_hand"]] = np.nan
+    return seq

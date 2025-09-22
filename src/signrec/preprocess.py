@@ -87,3 +87,19 @@ def mirror(seq: np.ndarray) -> np.ndarray:
     return out
 
 
+def canonicalize_hand(seq: np.ndarray) -> np.ndarray:
+    """Mirror the sequence when the left-hand slot is seen in more frames than the right one."""
+    n_left, n_right = hand_presence(seq).sum(axis=0)
+    return mirror(seq) if n_left > n_right else seq
+
+
+def resample(seq: np.ndarray, T: int) -> np.ndarray:
+    """Uniform linear temporal resampling to ``T`` frames."""
+    n = seq.shape[0]
+    if n == T:
+        return seq.copy()
+    if n == 1:
+        return np.repeat(seq, T, axis=0)
+    return resample_at(seq, np.linspace(0.0, n - 1, T))
+
+
