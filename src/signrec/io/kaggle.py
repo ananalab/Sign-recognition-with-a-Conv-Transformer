@@ -41,3 +41,7 @@ def long_to_frames(df: pd.DataFrame) -> np.ndarray:
     return out
 
 
+def load_kaggle_sequence(path: str | Path) -> np.ndarray:
+    """Read one Kaggle parquet and return the unified ``[T, L, 3]`` float32 sequence."""
+    df = pd.read_parquet(path, columns=["frame", "type", "landmark_index", "x", "y", "z"])
+    return long_to_frames(df)[:, _UNIFIED]

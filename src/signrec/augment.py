@@ -10,3 +10,5 @@ isotropic scaling would be cancelled exactly by the shoulder normalisation.
 All functions take an explicit ``numpy.random.Generator`` and never modify their input.
 """
 
+from __future__ import annotations
+

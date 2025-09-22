@@ -64,3 +64,26 @@ class PreprocessConfig:
         return n * (2 if self.velocity else 1)
 
 
+def hand_presence(seq: np.ndarray) -> np.ndarray:
+    """``[T, 2]`` booleans: is the left / right hand detected in each frame."""
+    lh = ~np.isnan(seq[:, _LH, 0]).all(axis=1)
+    rh = ~np.isnan(seq[:, _RH, 0]).all(axis=1)
+    return np.stack([lh, rh], axis=1)
+
+
+def trim_handless(seq: np.ndarray) -> np.ndarray:
+    """Remove leading and trailing frames without any detected hand (keep all if none)."""
+    any_hand = hand_presence(seq).any(axis=1)
+    if not any_hand.any():
+        return seq
+    idx = np.flatnonzero(any_hand)
+    return seq[idx[0] : idx[-1] + 1]
+
+
+def mirror(seq: np.ndarray) -> np.ndarray:
+    """Horizontal flip in image coordinates (x -> 1 - x) with left/right landmark swap."""
+    out = seq[:, _MIRROR].copy()
+    out[..., 0] = 1.0 - out[..., 0]
+    return out
+
+
