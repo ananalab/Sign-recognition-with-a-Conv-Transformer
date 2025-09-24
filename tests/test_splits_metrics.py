@@ -33,3 +33,24 @@ def test_forced_test_signers() -> None:
     assert sp["signers"]["test"] == ["P0", "P1"] and len(sp["signers"]["val"]) == 2
 
 
+def test_random_split_leaks_signers() -> None:
+    idx = _index()
+    rows = split_indices(idx, random_split(idx, 0.1, 0.2))
+    assert sum(len(v) for v in rows.values()) == len(idx)
+    assert set(idx.signer_id.iloc[rows["train"]]) & set(idx.signer_id.iloc[rows["test"]])
+
+
+def test_metrics() -> None:
+    probs = np.array([[0.7, 0.2, 0.1], [0.1, 0.3, 0.6], [0.5, 0.4, 0.1]])
+    y = np.array([0, 1, 1])
+    assert topk_accuracy(probs, y, 1) == 1 / 3
+    assert topk_accuracy(probs, y, 2) == 1.0
+    s = summary(probs, y, 3)
+    assert set(s) == {"top1", "top5", "macro_f1"}
+    cm = confusion(y, probs.argmax(1), 3)
+    pairs = confused_pairs(cm, ["a", "b", "c"])
+    assert set(zip(pairs["true"], pairs["pred"], strict=True)) == {("b", "c"), ("b", "a")}
+    acc = per_group_accuracy(y, probs.argmax(1), np.array(["x", "x", "y"]))
+    assert acc.loc["y", "acc"] == 0.0
+
+

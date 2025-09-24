@@ -26,3 +26,8 @@ from signrec.store import PackedDataset
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def fit_logreg(X: np.ndarray, y: np.ndarray, seed: int) -> LogisticRegression:
+    clf = LogisticRegression(C=0.5, max_iter=500, random_state=seed)
+    return clf.fit(X, y)
+
+

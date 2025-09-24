@@ -93,6 +93,31 @@ def canonicalize_hand(seq: np.ndarray) -> np.ndarray:
     return mirror(seq) if n_left > n_right else seq
 
 
+def normalize(seq: np.ndarray, min_shoulder_width: float = 0.02) -> np.ndarray:
+    """Centre on the mean shoulder midpoint and divide by the mean shoulder width (x/y only).
+
+    Constants are computed over the whole sequence so motion is preserved. If shoulders are
+    missing or degenerate, fall back to the centroid and spread of all visible points.
+    """
+    out = seq.copy()
+    ls, rs = seq[:, POSE_POS["l_shoulder"], :2], seq[:, POSE_POS["r_shoulder"], :2]
+    ok = ~(np.isnan(ls).any(axis=1) | np.isnan(rs).any(axis=1))
+    width = np.linalg.norm(ls[ok] - rs[ok], axis=1).mean() if ok.any() else 0.0
+    if width >= min_shoulder_width:
+        center = ((ls[ok] + rs[ok]) / 2).mean(axis=0)
+        scale = width
+    else:
+        pts = seq[..., :2].reshape(-1, 2)
+        pts = pts[~np.isnan(pts).any(axis=1)]
+        if len(pts) == 0:
+            return out
+        center = pts.mean(axis=0)
+        scale = max(float(pts.std(axis=0).mean()) * 4.0, _EPS)
+    out[..., :2] = (seq[..., :2] - center) / scale
+    out[..., 2] = seq[..., 2] / scale
+    return out
+
+
 def resample(seq: np.ndarray, T: int) -> np.ndarray:
     """Uniform linear temporal resampling to ``T`` frames."""
     n = seq.shape[0]
