@@ -16,3 +16,44 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
+import yaml
+
+from signrec.preprocess import resample_at
+
+
+@dataclass(frozen=True)
+class AugmentConfig:
+    p_spatial: float = 0.8  # probability of applying the spatial transform
+    rotate_deg: float = 15.0
+    scale: tuple[float, float] = (0.8, 1.2)  # per-axis scale factors
+    shift: float = 0.1  # in shoulder widths
+    speed: tuple[float, float] = (0.8, 1.2)  # global speed factor
+    warp: float = 0.3  # local speed variation (0 = uniform)
+    warp_segments: int = 4
+    frame_drop: float = 0.1
+    landmark_drop: float = 0.05
+    hand_drop: float = 0.05  # probability of hiding a whole hand in a frame
+    noise_std: float = 0.002  # image units
+
+    @classmethod
+    def from_yaml(cls, path: str | Path) -> AugmentConfig:
+        d = yaml.safe_load(Path(path).read_text())
+        for k in ("scale", "speed"):
+            if k in d:
+                d[k] = tuple(d[k])
+        return cls(**d)
+
+
+def time_warp(seq: np.ndarray, rng: np.random.Generator, cfg: AugmentConfig) -> np.ndarray:
+    """Global speed change plus a smooth, monotonic, non-uniform warp of the time axis."""
+    n = seq.shape[0]
+    n_out = max(2, int(round(n / rng.uniform(*cfg.speed))))
+    k = cfg.warp_segments
+    speeds = rng.uniform(1 - cfg.warp, 1 + cfg.warp, size=k)
+    knots = np.concatenate([[0.0], np.cumsum(speeds)]) / speeds.sum()
+    u = np.linspace(0.0, 1.0, n_out)
+    pos = np.interp(u, np.linspace(0.0, 1.0, k + 1), knots) * (n - 1)
+    return resample_at(seq, pos)
+
+

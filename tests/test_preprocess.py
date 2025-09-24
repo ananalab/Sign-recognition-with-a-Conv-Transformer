@@ -52,6 +52,29 @@ def test_mirrored_input_gives_same_features() -> None:
     np.testing.assert_allclose(a, b, atol=1e-4)
 
 
+@pytest.mark.parametrize("T", [1, 5, 64, 1000])
+@pytest.mark.parametrize("mode", ["resample", "pad"])
+def test_shapes_and_no_nan(T, mode) -> None:
+    cfg = PreprocessConfig(length_mode=mode)
+    x, m = preprocess(random_sequence(T=T, nan_left=True), cfg)
+    assert x.shape == (cfg.T, cfg.n_features) and m.shape == (cfg.T,)
+    assert np.isfinite(x).all()
+    if mode == "pad" and T < cfg.T:
+        assert m.sum() == T and (x[~m] == 0).all()
+
+
+def test_no_hand_at_all() -> None:
+    seq = random_sequence()
+    seq[:, :42] = np.nan
+    x, _ = preprocess(seq, CFG)
+    assert np.isfinite(x).all()
+
+
+def test_all_nan_sequence() -> None:
+    x, _ = preprocess(np.full((10, N_LANDMARKS, 3), np.nan, np.float32), CFG)
+    assert np.isfinite(x).all() and (x == 0).all()
+
+
 def test_feature_count() -> None:
     assert CFG.n_features == (89 * 2 + 21 * 2) * 2
     assert (
