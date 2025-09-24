@@ -4,3 +4,9 @@ A split file stores the *signer* lists (and, for the leakage study, explicit sam
 small, human-readable and versioned.
 """
 
+import json
+from pathlib import Path
+
+SPLITS = ("train", "val", "test")
+
+

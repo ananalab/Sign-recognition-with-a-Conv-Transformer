@@ -52,3 +52,11 @@ def test_mirrored_input_gives_same_features() -> None:
     np.testing.assert_allclose(a, b, atol=1e-4)
 
 
+def test_feature_count() -> None:
+    assert CFG.n_features == (89 * 2 + 21 * 2) * 2
+    assert (
+        PreprocessConfig(parts=("left_hand", "right_hand", "pose"), use_z=True).n_features
+        == (49 * 3 + 21 * 3) * 2
+    )
+
+

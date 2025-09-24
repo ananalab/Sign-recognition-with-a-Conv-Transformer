@@ -7,3 +7,5 @@ from pathlib import Path
 
 import numpy as np
 
+from signrec.io.kaggle import load_kaggle_sequence
+

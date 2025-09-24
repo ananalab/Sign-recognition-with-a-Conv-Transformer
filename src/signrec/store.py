@@ -19,6 +19,9 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+
 INDEX_COLUMNS = ["sample_id", "dataset", "label", "signer_id", "n_frames", "fps", "offset"]
 
 
@@ -64,3 +67,41 @@ class PackedWriter:
         return out
 
 
+class PackedDataset:
+    """Read access to a packed dataset (frames are memory-mapped)."""
+
+    def __init__(self, root: str | Path, mmap: bool = True) -> None:
+        self.root = Path(root)
+        self.index = pd.read_parquet(self.root / "index.parquet")
+        self.frames = np.load(self.root / "frames.npy", mmap_mode="r" if mmap else None)
+        self.label_to_id: dict[str, int] = json.loads((self.root / "labels.json").read_text())
+        self.id_to_label = {v: k for k, v in self.label_to_id.items()}
+        meta = self.root / "meta.json"
+        self.meta: dict = json.loads(meta.read_text()) if meta.exists() else {}
+        self.y_scale = float(self.meta.get("y_scale", 1.0))
+        self._offsets = self.index["offset"].to_numpy()
+        self._lengths = self.index["n_frames"].to_numpy()
+
+    def __getstate__(self) -> dict:
+        # DataLoader workers re-open the memory map instead of pickling the frames.
+        state = self.__dict__.copy()
+        state["frames"] = None
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        self.__dict__.update(state)
+        self.frames = np.load(self.root / "frames.npy", mmap_mode="r")
+
+    def __len__(self) -> int:
+        return len(self.index)
+
+    @property
+    def n_classes(self) -> int:
+        return len(self.label_to_id)
+
+    def sequence(self, i: int) -> np.ndarray:
+        o, n = int(self._offsets[i]), int(self._lengths[i])
+        return np.asarray(self.frames[o : o + n], dtype=np.float32)
+
+    def targets(self) -> np.ndarray:
+        return self.index["label"].map(self.label_to_id).to_numpy(dtype=np.int64)

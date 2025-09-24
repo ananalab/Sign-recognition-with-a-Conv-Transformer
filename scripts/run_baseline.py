@@ -23,3 +23,6 @@ from signrec.preprocess import PreprocessConfig
 from signrec.splits import load_split, split_indices
 from signrec.store import PackedDataset
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
