@@ -36,3 +36,145 @@ from signrec.store import PackedDataset
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def git_hash() -> str:
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True
+        )
+        return out.stdout.strip() or "unknown"
+    except OSError:
+        return "unknown"
+
+
+def train(cfg: DictConfig) -> dict:
+    """Train one model; return the best validation metrics and artefact paths."""
+    seed_everything(cfg.seed)
+    device = pick_device(cfg.train.device)
+    pcfg = resolve_preprocess(cfg)
+    mcfg = cfg_model(cfg)
+    acfg = AugmentConfig.from_yaml(ROOT / cfg.augment) if cfg.get("augment") else None
+    data = prepare_data(cfg)
+    n_classes = len(data.labels)
+    dataset_name = Path(cfg.data.root).name
+    run = cfg.run_name or f"{dataset_name}-{mcfg['name']}-{time.strftime('%Y%m%d-%H%M%S')}"
+
+    train_ds = SignDataset(data.ds, data.rows["train"], pcfg, acfg, data.label_map, cfg.seed)
+    val_ds = SignDataset(data.ds, data.rows["val"], pcfg, None, data.label_map)
+    tl = make_loader(train_ds, cfg.train.batch_size, True, cfg.train.num_workers)
+    if cfg.train.get("cache_val"):
+        # validation features are deterministic: compute them once instead of every epoch
+        items = [val_ds[i] for i in range(len(val_ds))]
+        val_ds = torch.utils.data.TensorDataset(*(torch.stack(t) for t in zip(*items, strict=True)))
+        vl = make_loader(val_ds, 256, False, 0)
+    else:
+        vl = make_loader(val_ds, 256, False, cfg.train.num_workers)
+
+    model_kwargs = {k: v for k, v in mcfg.items() if k != "name"}
+    model = build_model(mcfg["name"], pcfg.n_features, n_classes, **model_kwargs).to(device)
+    if cfg.transfer.get("init_from"):
+        load_encoder(model, ROOT / cfg.transfer.init_from)
+    freeze_epochs = int(cfg.transfer.get("freeze_epochs") or 0)
+    n_params = count_parameters(model)
+    print(
+        f"[{run}] {mcfg['name']} {n_params / 1e6:.2f}M params | {n_classes} classes | "
+        f"train={len(train_ds)} val={len(val_ds)} | device={device}"
+    )
+
+    opt = torch.optim.AdamW(
+        model.parameters(), lr=cfg.train.lr, weight_decay=cfg.train.weight_decay
+    )
+    steps_per_epoch = max(len(tl), 1)
+    total = cfg.train.epochs * steps_per_epoch
+    sched = torch.optim.lr_scheduler.LambdaLR(
+        opt, lambda s: cosine_with_warmup(s, total, cfg.train.warmup_epochs * steps_per_epoch)
+    )
+    loss_fn = nn.CrossEntropyLoss(label_smoothing=cfg.train.label_smoothing)
+    use_amp = device.type == "cuda"  # fp16 autocast brings no speed-up on MPS (measured)
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+
+    run_dir = ROOT / "reports" / "runs" / run
+    ckpt_dir = ROOT / "models" / run
+    run_dir.mkdir(parents=True, exist_ok=True)
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    OmegaConf.save(cfg, run_dir / "config.yaml")
+
+    tracker = _MlflowTracker(cfg, run, n_params) if cfg.get("mlflow") else None
+    history, best, bad_epochs = [], {"macro_f1": -1.0}, 0
+    t_start = time.time()
+    for epoch in range(cfg.train.epochs):
+        set_encoder_trainable(model, epoch >= freeze_epochs)
+        train_ds.set_epoch(epoch)
+        model.train()
+        t0, losses = time.time(), []
+        for x, m, y in tl:
+            x, m, y = x.to(device), m.to(device), y.to(device)
+            with torch.autocast(device.type, dtype=torch.float16, enabled=use_amp):
+                loss = loss_fn(model(x, m), y)
+            opt.zero_grad(set_to_none=True)
+            scaler.scale(loss).backward()
+            scaler.unscale_(opt)
+            nn.utils.clip_grad_norm_(model.parameters(), cfg.train.grad_clip)
+            scaler.step(opt)
+            scaler.update()
+            sched.step()
+            losses.append(loss.item())
+        probs, yv = predict(model, vl, device)
+        met = summary(probs, yv, n_classes)
+        row = {
+            "epoch": epoch,
+            "train_loss": float(np.mean(losses)),
+            "lr": sched.get_last_lr()[0],
+            "seconds": time.time() - t0,
+            **{f"val_{k}": v for k, v in met.items()},
+        }
+        history.append(row)
+        pd.DataFrame(history).to_csv(run_dir / "history.csv", index=False)
+        if tracker:
+            tracker.log(row, epoch)
+        improved = met["macro_f1"] > best["macro_f1"]
+        print(
+            f"  ep {epoch:3d} loss {row['train_loss']:.3f} | val top1 {met['top1']:.4f} "
+            f"top5 {met['top5']:.4f} f1 {met['macro_f1']:.4f} | {row['seconds']:.0f}s"
+            + (" *" if improved else ""),
+            flush=True,
+        )
+        if improved:
+            best = {**met, "epoch": epoch}
+            bad_epochs = 0
+            torch.save(
+                {
+                    "state_dict": model.state_dict(),
+                    "model": mcfg,
+                    "preprocess": pcfg.to_dict(),
+                    "labels": data.labels,
+                    "n_features": pcfg.n_features,
+                    "run": run,
+                    "git": git_hash(),
+                },
+                ckpt_dir / "best.pt",
+            )
+        else:
+            bad_epochs += 1
+            if bad_epochs >= cfg.train.patience:
+                print(f"  early stopping at epoch {epoch}")
+                break
+
+    result = {
+        "run": run,
+        "model": mcfg["name"],
+        "dataset": dataset_name,
+        "n_params": n_params,
+        "n_classes": n_classes,
+        "n_train": len(train_ds),
+        "n_val": len(val_ds),
+        "train_minutes": (time.time() - t_start) / 60,
+        "git": git_hash(),
+        "best_val": best,
+        "checkpoint": str((ckpt_dir / "best.pt").relative_to(ROOT)),
+    }
+    (run_dir / "metrics.json").write_text(json.dumps(result, indent=1))
+    if tracker:
+        tracker.finish(result)
+    return result
+
+

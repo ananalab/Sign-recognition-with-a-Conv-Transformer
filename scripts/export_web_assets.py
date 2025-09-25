@@ -18,3 +18,13 @@ from pathlib import Path
 
 import numpy as np
 
+from signrec import landmarks as lm
+from signrec.preprocess import PreprocessConfig, mirror, preprocess
+from signrec.splits import load_split, split_indices
+from signrec.store import PackedDataset
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+if __name__ == "__main__":
+    main()
