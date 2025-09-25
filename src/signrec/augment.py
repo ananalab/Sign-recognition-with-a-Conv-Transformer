@@ -57,3 +57,16 @@ def time_warp(seq: np.ndarray, rng: np.random.Generator, cfg: AugmentConfig) -> 
     return resample_at(seq, pos)
 
 
+def drop_frames(seq: np.ndarray, rng: np.random.Generator, p: float) -> np.ndarray:
+    keep = rng.random(seq.shape[0]) >= p
+    return seq[keep] if keep.sum() >= 2 else seq
+
+
+def drop_landmarks(seq: np.ndarray, rng: np.random.Generator, cfg: AugmentConfig) -> np.ndarray:
+    out = seq.copy()
+    out[rng.random(seq.shape[:2]) < cfg.landmark_drop] = np.nan
+    for sl in (slice(0, 21), slice(21, 42)):
+        out[rng.random(seq.shape[0]) < cfg.hand_drop, sl] = np.nan
+    return out
+
+

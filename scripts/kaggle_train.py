@@ -18,3 +18,35 @@ Experiment file (YAML)::
         evaluate: [val, test]    # optional
 """
 
+CODE = "__CODE__"
+SPEC = json.loads(r"""__SPEC__""")
+WORK = "/kaggle/working/repo"
+OUT = "/kaggle/working/out"
+
+tarfile.open(fileobj=io.BytesIO(base64.b64decode(CODE)), mode="r:gz").extractall(WORK)
+os.makedirs(f"{WORK}/data/processed", exist_ok=True)
+for name in SPEC["sources"]:
+    slug = name.replace("_", "-")
+    hits = sorted(glob.glob(f"/kaggle/input/**/{name}/index.parquet", recursive=True)
+                  + glob.glob(f"/kaggle/input/**/{slug}-unified/index.parquet", recursive=True))
+    if not hits:
+        sys.exit(f"source {name} not mounted")
+    os.symlink(os.path.dirname(hits[0]), f"{WORK}/data/processed/{name}")
+for kernel in SPEC.get("pretrained_from", []):
+    pattern = f"/kaggle/input/**/{kernel.split('/')[-1]}/**/models/*/best.pt"
+    for ck in glob.glob(pattern, recursive=True):
+        dst = f"{WORK}/models/{os.path.basename(os.path.dirname(ck))}"
+        os.makedirs(dst, exist_ok=True)
+        shutil.copy(ck, f"{dst}/best.pt")
+for mod in ("omegaconf", "tabulate"):
+    try:
+        __import__(mod)
+    except ImportError:
+        subprocess.run([sys.executable, "-m", "pip", "install", "-q", mod], check=True)
+
+def _skip_cache(info: tarfile.TarInfo) -> tarfile.TarInfo | None:
+    return None if "__pycache__" in info.name else info
+
+
+if __name__ == "__main__":
+    main()
