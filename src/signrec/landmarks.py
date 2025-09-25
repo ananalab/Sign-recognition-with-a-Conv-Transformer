@@ -61,3 +61,45 @@ POSE_POS: Final[dict[str, int]] = {
     name: SLICES["pose"].start + i for i, name in enumerate(POSE_NAMES)
 }
 
+_POSE_SWAP: Final[dict[str, str]] = {
+    "l_shoulder": "r_shoulder",
+    "l_elbow": "r_elbow",
+    "l_wrist": "r_wrist",
+}
+
+# Symmetric face-mesh indices of the lip contour, used for horizontal flips.
+_LIPS_MIRROR: Final[dict[int, int]] = {
+    61: 291, 185: 409, 40: 270, 39: 269, 37: 267, 0: 0,
+    146: 375, 91: 321, 181: 405, 84: 314, 17: 17,
+    78: 308, 191: 415, 80: 310, 81: 311, 82: 312, 13: 13,
+    95: 324, 88: 318, 178: 402, 87: 317, 14: 14,
+}  # fmt: skip
+
+
+def mirror_permutation() -> list[int]:
+    """Index permutation implementing a left/right swap of the unified subset."""
+    perm = list(range(N_LANDMARKS))
+    lh, rh = SLICES["left_hand"], SLICES["right_hand"]
+    for i in range(21):
+        perm[lh.start + i] = rh.start + i
+        perm[rh.start + i] = lh.start + i
+    swap = {**_POSE_SWAP, **{v: k for k, v in _POSE_SWAP.items()}}
+    for name, other in swap.items():
+        perm[POSE_POS[name]] = POSE_POS[other]
+    lips_mirror = {**_LIPS_MIRROR, **{v: k for k, v in _LIPS_MIRROR.items()}}
+    pos_in_lips = {mp_idx: SLICES["lips"].start + i for i, mp_idx in enumerate(LIPS_IDX)}
+    for mp_idx, pos in pos_in_lips.items():
+        perm[pos] = pos_in_lips[lips_mirror[mp_idx]]
+    return perm
+
+
+# Skeleton edges (unified indices) used for drawing.
+_HAND_EDGES: Final[tuple[tuple[int, int], ...]] = (
+    (0, 1), (1, 2), (2, 3), (3, 4),
+    (0, 5), (5, 6), (6, 7), (7, 8),
+    (5, 9), (9, 10), (10, 11), (11, 12),
+    (9, 13), (13, 14), (14, 15), (15, 16),
+    (13, 17), (0, 17), (17, 18), (18, 19), (19, 20),
+)  # fmt: skip
+
+

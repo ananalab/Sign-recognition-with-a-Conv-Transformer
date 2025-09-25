@@ -116,3 +116,5 @@ def main() -> None:
         out.write_text(json.dumps(results, indent=1))
 
 
+if __name__ == "__main__":
+    main()
