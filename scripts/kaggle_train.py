@@ -18,6 +18,9 @@ Experiment file (YAML)::
         evaluate: [val, test]    # optional
 """
 
+RUNNER = r'''
+import base64, glob, io, json, os, shutil, subprocess, sys, tarfile
+
 CODE = "__CODE__"
 SPEC = json.loads(r"""__SPEC__""")
 WORK = "/kaggle/working/repo"
@@ -43,6 +46,14 @@ for mod in ("omegaconf", "tabulate"):
         __import__(mod)
     except ImportError:
         subprocess.run([sys.executable, "-m", "pip", "install", "-q", mod], check=True)
+
+def pack_code() -> str:
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for item in PACKAGED:
+            tar.add(ROOT / item, arcname=item, filter=_skip_cache)
+    return base64.b64encode(buf.getvalue()).decode()
+
 
 def _skip_cache(info: tarfile.TarInfo) -> tarfile.TarInfo | None:
     return None if "__pycache__" in info.name else info

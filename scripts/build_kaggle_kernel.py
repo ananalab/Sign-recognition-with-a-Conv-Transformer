@@ -15,6 +15,10 @@ import json
 import subprocess
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+MODULES = ["src/signrec/landmarks.py", "src/signrec/io/kaggle.py", "src/signrec/store.py"]
+OUT_DIR = ROOT / "kaggle" / "convert_asl"
+
 MAIN = """
 # ---------------------------------------------------------------- kernel entry point
 import glob
