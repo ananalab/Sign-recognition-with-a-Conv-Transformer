@@ -9,3 +9,7 @@ import numpy as np
 
 from signrec.io.kaggle import load_kaggle_sequence
 
+ROOT = Path(__file__).resolve().parents[1]
+ENTRY = "# " + "-" * 64 + " kernel entry point"
+
+

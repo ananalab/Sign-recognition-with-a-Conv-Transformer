@@ -64,6 +64,16 @@ def cfg_model(cfg: DictConfig) -> dict:
     return d
 
 
+def pick_device(name: str) -> torch.device:
+    if name != "auto":
+        return torch.device(name)
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
 def git_hash() -> str:
     try:
         out = subprocess.run(
@@ -72,6 +82,37 @@ def git_hash() -> str:
         return out.stdout.strip() or "unknown"
     except OSError:
         return "unknown"
+
+
+def seed_everything(seed: int) -> None:
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+
+@dataclass
+class Data:
+    ds: PackedDataset
+    rows: dict[str, np.ndarray]
+    label_map: dict[int, int]  # dataset class id -> model class id
+    labels: list[str]  # model class id -> gloss
+
+
+def prepare_data(cfg: DictConfig) -> Data:
+    ds = PackedDataset(ROOT / cfg.data.root)
+    rows = split_indices(ds.index, load_split(ROOT / cfg.data.split))
+    y = ds.targets()
+    classes = np.arange(ds.n_classes)
+    if cfg.data.get("n_classes"):
+        classes = classes[: cfg.data.n_classes]
+    rows = {k: v[np.isin(y[v], classes)] for k, v in rows.items()}
+    if cfg.data.get("max_per_class"):
+        rng = np.random.default_rng(cfg.seed)
+        tr = rows["train"]
+        picked = [rng.permutation(tr[y[tr] == c])[: cfg.data.max_per_class] for c in classes]
+        rows["train"] = np.sort(np.concatenate(picked))
+    label_map = {int(c): i for i, c in enumerate(classes)}
+    labels = [ds.id_to_label[int(c)] for c in classes]
+    return Data(ds, rows, label_map, labels)
 
 
 def train(cfg: DictConfig) -> dict:
