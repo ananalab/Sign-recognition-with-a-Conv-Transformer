@@ -15,3 +15,11 @@ import json
 import subprocess
 from pathlib import Path
 
+MAIN = """
+# ---------------------------------------------------------------- kernel entry point
+import glob
+import os
+import time
+from multiprocessing import Pool
+
+

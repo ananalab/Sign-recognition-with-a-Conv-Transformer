@@ -36,6 +36,34 @@ from signrec.store import PackedDataset
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def load_config(path: str | Path, overrides: list[str] | None = None) -> DictConfig:
+    cfg = OmegaConf.load(path)
+    if overrides:
+        cfg = OmegaConf.merge(cfg, OmegaConf.from_dotlist(overrides))
+    return cfg
+
+
+def resolve_preprocess(cfg: DictConfig) -> PreprocessConfig:
+    over = cfg.get("preprocess_overrides")
+    over = OmegaConf.to_container(over, resolve=True) if OmegaConf.is_config(over) else {}
+    pcfg = PreprocessConfig.from_yaml(ROOT / cfg.preprocess, **over)
+    max_len = cfg_model(cfg).get("max_len")
+    if max_len is not None and max_len < pcfg.T:
+        raise ValueError("preprocess.T exceeds the model positional embedding length")
+    return pcfg
+
+
+def cfg_model(cfg: DictConfig) -> dict:
+    m = cfg.model
+    if isinstance(m, str):
+        m = OmegaConf.load(ROOT / m)
+    d = dict(OmegaConf.to_container(m, resolve=True) if OmegaConf.is_config(m) else m)
+    over = cfg.get("model_overrides")
+    if OmegaConf.is_config(over):
+        d.update(OmegaConf.to_container(over, resolve=True))
+    return d
+
+
 def git_hash() -> str:
     try:
         out = subprocess.run(

@@ -8,6 +8,10 @@ Writes reports/latency.json. The browser benchmark runs headless Chromium (Playw
 backend, one thread, i.e. the configuration of the static demo (no cross-origin isolation).
 """
 
+from __future__ import annotations
+
+from playwright.async_api import async_playwright
+
 async def browser_bench(folder: Path, models: list[tuple[str, int, int]]) -> dict:
     page_src = PAGE.replace("__ORT__", ORT_WEB).replace("__MODELS__", json.dumps(models))
     (folder / "index.html").write_text(page_src)
