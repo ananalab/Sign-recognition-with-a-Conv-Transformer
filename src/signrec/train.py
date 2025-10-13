@@ -115,6 +115,46 @@ def prepare_data(cfg: DictConfig) -> Data:
     return Data(ds, rows, label_map, labels)
 
 
+def make_loader(dataset: SignDataset, batch: int, shuffle: bool, workers: int) -> DataLoader:
+    return DataLoader(
+        dataset,
+        batch_size=batch,
+        shuffle=shuffle,
+        num_workers=workers,
+        drop_last=shuffle and len(dataset) > batch,
+    )
+
+
+@torch.no_grad()
+def predict(
+    model: nn.Module, loader: DataLoader, device: torch.device
+) -> tuple[np.ndarray, np.ndarray]:
+    model.eval()
+    probs, ys = [], []
+    for x, m, y in loader:
+        logits = model(x.to(device), m.to(device))
+        probs.append(logits.float().softmax(-1).cpu().numpy())
+        ys.append(y.numpy())
+    return np.concatenate(probs), np.concatenate(ys)
+
+
+def cosine_with_warmup(step: int, total: int, warmup: int) -> float:
+    if step < warmup:
+        return (step + 1) / max(warmup, 1)
+    t = (step - warmup) / max(total - warmup, 1)
+    return 0.5 * (1 + math.cos(math.pi * min(t, 1.0)))
+
+
+def load_encoder(model: nn.Module, path: str | Path) -> list[str]:
+    """Initialise every non-head parameter from a checkpoint; returns the missing keys."""
+    state = torch.load(path, map_location="cpu", weights_only=False)["state_dict"]
+    state = {k: v for k, v in state.items() if not k.startswith("head.")}
+    missing, unexpected = model.load_state_dict(state, strict=False)
+    if unexpected:
+        raise RuntimeError(f"unexpected keys in {path}: {unexpected[:5]}")
+    return list(missing)
+
+
 def train(cfg: DictConfig) -> dict:
     """Train one model; return the best validation metrics and artefact paths."""
     seed_everything(cfg.seed)

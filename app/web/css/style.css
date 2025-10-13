@@ -34,3 +34,13 @@ h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 p { margin: 8px 0 0; }
 kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; }
 
+/* layout */
+.layout {
+  max-width: 1200px; margin: 0 auto; padding: 16px 24px;
+  display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); gap: 16px 28px;
+}
+.topbar { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.stage-col, .side-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.side-col { gap: 0; }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; padding: 16px; } }
+
