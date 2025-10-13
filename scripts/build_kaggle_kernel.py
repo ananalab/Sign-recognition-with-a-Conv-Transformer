@@ -27,3 +27,10 @@ import time
 from multiprocessing import Pool
 
 
+def _find_root() -> str:
+    hits = glob.glob("/kaggle/input/**/train.csv", recursive=True)
+    if not hits:
+        raise FileNotFoundError("asl-signs not mounted: add the competition as a data source")
+    return os.path.dirname(hits[0])
+
+
