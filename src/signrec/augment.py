@@ -70,3 +70,26 @@ def drop_landmarks(seq: np.ndarray, rng: np.random.Generator, cfg: AugmentConfig
     return out
 
 
+def augment_raw(seq: np.ndarray, rng: np.random.Generator, cfg: AugmentConfig) -> np.ndarray:
+    """Temporal and dropout augmentations on a raw sequence."""
+    if seq.shape[0] < 2:
+        return seq
+    out = time_warp(seq, rng, cfg)
+    out = drop_frames(out, rng, cfg.frame_drop)
+    out = drop_landmarks(out, rng, cfg)
+    return out + rng.normal(0.0, cfg.noise_std, size=out.shape).astype(out.dtype)
+
+
+def spatial(seq: np.ndarray, rng: np.random.Generator, cfg: AugmentConfig) -> np.ndarray:
+    """Rotation, per-axis scaling and translation of a normalised sequence (x/y only)."""
+    if rng.random() >= cfg.p_spatial:
+        return seq
+    th = np.deg2rad(rng.uniform(-cfg.rotate_deg, cfg.rotate_deg))
+    sx, sy = rng.uniform(*cfg.scale, size=2)
+    R = np.array([[np.cos(th), -np.sin(th)], [np.sin(th), np.cos(th)]]) @ np.diag([sx, sy])
+    t = rng.uniform(-cfg.shift, cfg.shift, size=2)
+    out = seq.copy()
+    out[..., :2] = seq[..., :2] @ R.T.astype(np.float32) + t.astype(np.float32)
+    return out
+
+

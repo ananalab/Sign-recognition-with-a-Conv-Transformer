@@ -29,3 +29,16 @@ const app = {
   examples: null, exampleOrder: null, exampleYScale: 1.0, fit: null, replayId: 0,
 };
 
+async function main() {
+  bindEvents();
+  try {
+    await loadModelIndex();
+    setStatus("Loading landmarker…");
+    await loadHolistic();
+    setStatus("Ready", "ready");
+  } catch (e) {
+    console.error(e);
+    setStatus(e.message.slice(0, 80), "error");
+  }
+}
+
