@@ -29,6 +29,61 @@ const app = {
   examples: null, exampleOrder: null, exampleYScale: 1.0, fit: null, replayId: 0,
 };
 
+function setStatus(text, state = "loading") {
+  ui.statusText.textContent = text;
+  ui.status.dataset.state = state;
+}
+function setBadge(text, state) {
+  ui.badge.textContent = text;
+  ui.badge.dataset.state = state;
+}
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+async function loadModelIndex() {
+  const res = await fetch("models/index.json");
+  if (!res.ok) throw new Error("models/index.json not found, run scripts/export_web_assets.py");
+  app.models = (await res.json()).models;
+  ui.modelPicker.innerHTML = "";
+  for (const m of app.models) {
+    const b = document.createElement("button");
+    b.setAttribute("role", "radio");
+    b.dataset.id = m.id;
+    b.innerHTML = `${m.short} <span class="sub">${m.n_classes} signs</span>`;
+    b.onclick = () => selectModel(m.id);
+    ui.modelPicker.appendChild(b);
+  }
+  $("footer-models").textContent = app.models.map((m) => `${m.name} (${m.citation})`).join("; ");
+  const wanted = new URLSearchParams(location.search).get("model");
+  await selectModel(app.models.some((m) => m.id === wanted) ? wanted : app.models[0].id);
+}
+
+async function selectModel(id) {
+  const meta = app.models.find((m) => m.id === id);
+  setStatus(`Loading ${meta.short} model…`);
+  const base = `models/${id}/`;
+  const [labels, cfg, session] = await Promise.all([
+    fetch(base + "labels.json").then((r) => r.json()),
+    fetch(base + "preprocess.json").then((r) => r.json()),
+    ort.InferenceSession.create(base + meta.file, { executionProviders: ["wasm"], graphOptimizationLevel: "all" }),
+  ]);
+  app.model = { ...meta, labels, cfg, session };
+  // warm-up run so that the first displayed latency is representative
+  const F = featureCount(cfg);
+  await session.run({
+    x: new ort.Tensor("float32", new Float32Array(cfg.T * F), [1, cfg.T, F]),
+    mask: new ort.Tensor("float32", new Float32Array(cfg.T).fill(1), [1, cfg.T]),
+  });
+  for (const b of ui.modelPicker.children) b.setAttribute("aria-checked", String(b.dataset.id === id));
+  renderVocab();
+  renderEasy();
+  resetPrediction();
+  await loadExamples(meta);
+  const u = new URL(location);
+  u.searchParams.set("model", id);
+  history.replaceState(null, "", u);
+  setStatus(app.holistic ? "Ready" : "Loading landmarker…", app.holistic ? "ready" : "loading");
+}
+
 async function main() {
   bindEvents();
   try {
