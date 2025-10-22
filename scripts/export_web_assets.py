@@ -51,5 +51,69 @@ def _seq(rng: np.random.Generator, T: int) -> np.ndarray:
     return seq
 
 
+def fixtures() -> list[dict]:
+    rng = np.random.default_rng(42)
+    cases = []
+
+    def add(name: str, seq: np.ndarray, cfg: PreprocessConfig, y_scale: float = 1.0) -> None:
+        x, m = preprocess(seq, cfg, y_scale=y_scale)
+        cases.append(
+            {
+                "name": name,
+                "cfg": cfg.to_dict(),
+                "y_scale": y_scale,
+                "shape": list(seq.shape),
+                "seq": [None if np.isnan(v) else float(v) for v in seq.ravel()],
+                "features": x.ravel().tolist(),
+                "mask": m.astype(int).tolist(),
+            }
+        )
+
+    base = PreprocessConfig()
+    s = _seq(rng, 40)
+    add("plain", s, base)
+    add("webcam_aspect_4_3", s, base, y_scale=0.75)
+    add("lsfb_aspect", s, base, y_scale=0.5625)
+    s2 = _seq(rng, 37)
+    s2[:, lm.SLICES["right_hand"]] = np.nan
+    s2[:4, :42] = np.nan
+    s2[-3:, :42] = np.nan
+    s2[rng.random(s2.shape[:2]) < 0.05] = np.nan
+    add("left_dominant_trim_nan", s2, base)
+    add("mirrored", mirror(s2), base)
+    s3 = _seq(rng, 25)
+    s3[:, :42] = np.nan
+    add("no_hands", s3, base)
+    s4 = _seq(rng, 12)
+    s4[:, lm.POSE_POS["l_shoulder"]] = np.nan
+    add("no_shoulders_fallback", s4, base)
+    add("single_frame", _seq(rng, 1), base)
+    add("long", _seq(rng, 150), base)
+    add("pad_mode", _seq(rng, 20), PreprocessConfig(length_mode="pad"))
+    add("xyz_no_lips_T32", _seq(rng, 50),
+        PreprocessConfig(T=32, use_z=True, parts=("left_hand", "right_hand", "pose")))  # fmt: skip
+    return cases
+
+
+MODEL_META = {
+    "asl": {
+        "name": "ASL (Google ISLR)",
+        "short": "ASL",
+        "language": "American Sign Language",
+        "citation": "Google ISLR, Kaggle 2023",
+        "dictionary": "https://www.signasl.org/sign/{gloss}",
+    },
+    "lsfb": {
+        "name": "LSFB (LSFB-ISOL)",
+        "short": "LSFB",
+        "language": "French Belgian Sign Language",
+        "citation": "Fink et al., IJCNN 2021",
+        "dictionary": None,
+        "examples": "examples/lsfb.json",
+        "note": "Glosses of the LSFB corpus (University of Namur).",
+    },
+}
+
+
 if __name__ == "__main__":
     main()

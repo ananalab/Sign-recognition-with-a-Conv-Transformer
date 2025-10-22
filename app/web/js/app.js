@@ -118,6 +118,13 @@ function toUnified(res) {
   return frame;
 }
 
+function currentYScale() {
+  // MediaPipe normalises x by the width and y by the height of the frame
+  if (app.fit) return app.exampleYScale ?? 1.0;
+  const v = ui.video;
+  return v.videoWidth ? v.videoHeight / v.videoWidth : 0.75;
+}
+
 async function main() {
   bindEvents();
   try {
