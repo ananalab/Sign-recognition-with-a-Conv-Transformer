@@ -34,3 +34,10 @@ def _find_root() -> str:
     return os.path.dirname(hits[0])
 
 
+DATA = _find_root()
+
+
+def _work(rel_path: str) -> np.ndarray:
+    return load_kaggle_sequence(os.path.join(DATA, rel_path)).astype(np.float16)
+
+

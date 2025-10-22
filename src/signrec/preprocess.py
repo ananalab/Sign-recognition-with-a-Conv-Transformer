@@ -118,6 +118,24 @@ def normalize(seq: np.ndarray, min_shoulder_width: float = 0.02) -> np.ndarray:
     return out
 
 
+def resample_at(seq: np.ndarray, pos: np.ndarray) -> np.ndarray:
+    """Linear interpolation of ``seq`` at fractional frame positions ``pos`` (in ``[0, T-1]``).
+
+    Where an endpoint is missing (NaN), the value of the nearest frame is used instead.
+    """
+    n = seq.shape[0]
+    lo = np.clip(np.floor(pos).astype(np.int64), 0, n - 1)
+    hi = np.minimum(lo + 1, n - 1)
+    w = (pos - lo).astype(seq.dtype)[:, None, None]
+    a, b = seq[lo], seq[hi]
+    out = a * (1 - w) + b * w
+    bad = np.isnan(out)
+    if bad.any():
+        nearest = np.where(w < 0.5, a, b)
+        out[bad] = nearest[bad]
+    return out
+
+
 def resample(seq: np.ndarray, T: int) -> np.ndarray:
     """Uniform linear temporal resampling to ``T`` frames."""
     n = seq.shape[0]
@@ -126,5 +144,20 @@ def resample(seq: np.ndarray, T: int) -> np.ndarray:
     if n == 1:
         return np.repeat(seq, T, axis=0)
     return resample_at(seq, np.linspace(0.0, n - 1, T))
+
+
+def fix_length(seq: np.ndarray, T: int, mode: str) -> tuple[np.ndarray, np.ndarray]:
+    """Return ``([T, L, C], mask[T])``; ``pad`` keeps the real frames and zero-pads the rest."""
+    if mode == "resample":
+        return resample(seq, T), np.ones(T, dtype=bool)
+    if mode == "pad":
+        if seq.shape[0] > T:
+            return resample(seq, T), np.ones(T, dtype=bool)
+        out = np.full((T, *seq.shape[1:]), np.nan, dtype=seq.dtype)
+        out[: seq.shape[0]] = seq
+        mask = np.zeros(T, dtype=bool)
+        mask[: seq.shape[0]] = True
+        return out, mask
+    raise ValueError(f"unknown length_mode {mode!r}")
 
 
