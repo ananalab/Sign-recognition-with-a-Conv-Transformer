@@ -27,3 +27,12 @@ from signrec.splits import load_split, split_indices
 from signrec.store import PackedDataset
 
 
+class _ExportWrapper(nn.Module):
+    def __init__(self, model: nn.Module) -> None:
+        super().__init__()
+        self.model = model
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        return self.model(x, mask > 0.5).softmax(-1)
+
+

@@ -8,6 +8,13 @@ each number in the paper comes from a file written by the training/evaluation sc
 
 from __future__ import annotations
 
+import argparse
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
 def sign_gifs(dss: dict[str, PackedDataset]) -> None:
     """Animated skeleton of a typical clip for a few signs, in reports/figures/."""
     for name, ds in dss.items():

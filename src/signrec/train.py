@@ -155,6 +155,12 @@ def load_encoder(model: nn.Module, path: str | Path) -> list[str]:
     return list(missing)
 
 
+def set_encoder_trainable(model: nn.Module, trainable: bool) -> None:
+    for name, p in model.named_parameters():
+        if not name.startswith("head."):
+            p.requires_grad_(trainable)
+
+
 def train(cfg: DictConfig) -> dict:
     """Train one model; return the best validation metrics and artefact paths."""
     seed_everything(cfg.seed)
@@ -285,5 +291,26 @@ def train(cfg: DictConfig) -> dict:
     if tracker:
         tracker.finish(result)
     return result
+
+
+class _MlflowTracker:
+    def __init__(self, cfg: DictConfig, run: str, n_params: int) -> None:
+        os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
+        import mlflow
+
+        self.mlflow = mlflow
+        mlflow.set_tracking_uri(f"file:{ROOT / 'mlruns'}")
+        mlflow.set_experiment(Path(cfg.data.root).name)
+        mlflow.start_run(run_name=run)
+        flat = pd.json_normalize(OmegaConf.to_container(cfg, resolve=True)).iloc[0].to_dict()
+        mlflow.log_params({k: str(v)[:250] for k, v in flat.items()})
+        mlflow.log_params({"n_params": n_params, "git": git_hash()})
+
+    def log(self, row: dict, step: int) -> None:
+        self.mlflow.log_metrics({k: float(v) for k, v in row.items() if k != "epoch"}, step=step)
+
+    def finish(self, result: dict) -> None:
+        self.mlflow.log_metrics({f"best_{k}": float(v) for k, v in result["best_val"].items()})
+        self.mlflow.end_run()
 
 

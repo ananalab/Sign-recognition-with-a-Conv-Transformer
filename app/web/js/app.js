@@ -84,6 +84,40 @@ async function selectModel(id) {
   setStatus(app.holistic ? "Ready" : "Loading landmarker…", app.holistic ? "ready" : "loading");
 }
 
+async function loadHolistic() {
+  const vision = await FilesetResolver.forVisionTasks(MP_WASM);
+  const opts = (delegate) => ({
+    baseOptions: { modelAssetPath: MP_MODEL, delegate },
+    runningMode: "VIDEO",
+    minHandLandmarksConfidence: 0.5,
+  });
+  try {
+    app.holistic = await HolisticLandmarker.createFromOptions(vision, opts("GPU"));
+  } catch {
+    app.holistic = await HolisticLandmarker.createFromOptions(vision, opts("CPU"));
+  }
+}
+
+function toUnified(res) {
+  const frame = new Float64Array(L * 3).fill(NaN);
+  const src = {
+    left_hand: res.leftHandLandmarks?.[0],
+    right_hand: res.rightHandLandmarks?.[0],
+    pose: res.poseLandmarks?.[0],
+    face: res.faceLandmarks?.[0],
+  };
+  let k = 0;
+  for (const g of GROUPS) {
+    const pts = src[g.source];
+    for (const i of g.indices) {
+      const p = pts?.[i];
+      if (p) frame.set([p.x, p.y, p.z], k * 3);
+      k++;
+    }
+  }
+  return frame;
+}
+
 async function main() {
   bindEvents();
   try {
