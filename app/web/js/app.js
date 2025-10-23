@@ -125,6 +125,81 @@ function currentYScale() {
   return v.videoWidth ? v.videoHeight / v.videoWidth : 0.75;
 }
 
+async function classify(frames, source) {
+  if (!app.model || frames.length < 2) return;
+  const m = app.model;
+  const t0 = performance.now();
+  const { features, mask } = preprocess(toSequence(frames), m.cfg, currentYScale());
+  const F = features.length / m.cfg.T;
+  const out = await m.session.run({
+    x: new ort.Tensor("float32", features, [1, m.cfg.T, F]),
+    mask: new ort.Tensor("float32", mask, [1, m.cfg.T]),
+  });
+  app.modelMs = performance.now() - t0;
+  ui.lat.textContent = app.fit
+    ? `recorded landmarks · model ${app.modelMs.toFixed(1)} ms`
+    : `landmarks ${app.mpMs.toFixed(0)} ms · model ${app.modelMs.toFixed(1)} ms`;
+  const probs = out.probs.data;
+  const order = Array.from(probs.keys()).sort((a, b) => probs[b] - probs[a]).slice(0, 5);
+  showPrediction(order.map((i) => ({ label: m.labels[i], p: probs[i] })), frames.length, source);
+}
+
+function resetPrediction() {
+  ui.gloss.textContent = "—";
+  ui.hint.textContent = "Sign something to see the model's guess.";
+  ui.conf.textContent = "";
+  ui.bars.innerHTML = "";
+  ui.predMeta.textContent = "";
+}
+
+function showPrediction(top, nFrames, source) {
+  const best = top[0];
+  const sure = best.p >= 0.35;
+  ui.pred.classList.toggle("uncertain", !sure);
+  ui.gloss.textContent = best.label;
+  ui.hint.textContent = sure ? `${source} · ${nFrames} frames` : "Low confidence, try again a bit slower";
+  ui.conf.textContent = `${Math.round(best.p * 100)}%`;
+  ui.predMeta.textContent = `${app.modelMs.toFixed(1)} ms`;
+  ui.bars.innerHTML = top
+    .map((t) => `<li><span class="name">${t.label}</span><span class="val">${(t.p * 100).toFixed(1)}%</span>
+      <div class="track"><div class="fill" style="width:${(t.p * 100).toFixed(1)}%"></div></div></li>`)
+    .join("");
+  app.history.push({ label: best.label, p: best.p });
+  renderHistory();
+  highlightVocab(best.label);
+}
+
+function renderHistory() {
+  ui.history.innerHTML = app.history.length
+    ? app.history.slice(-24).map((h) => `<span class="${h.p < 0.35 ? "low" : ""}">${h.label}<small>${Math.round(h.p * 100)}%</small></span>`).join("")
+    : '<span class="muted">Nothing yet.</span>';
+}
+
+function signLink(m, l, extra = "") {
+  return m.dictionary
+    ? `<a href="${m.dictionary.replace("{gloss}", encodeURIComponent(l.toLowerCase()))}" target="_blank" rel="noopener" data-l="${l}">${l}${extra}</a>`
+    : `<span data-l="${l}">${l}${extra}</span>`;
+}
+function renderEasy() {
+  const m = app.model;
+  const easy = m.easy || [];
+  ui.easyGrid.innerHTML = easy.map((e) => signLink(m, e.label, `<small>${Math.round(e.acc * 100)}%</small>`)).join("");
+  ui.easyNote.textContent = easy.length
+    ? `Best-recognised signs on unseen test signers (per-class accuracy).${m.dictionary ? " Click one to see how it is performed." : ""}`
+    : "";
+}
+function renderVocab(filter = "") {
+  const m = app.model;
+  const q = filter.trim().toLowerCase();
+  const items = m.labels.filter((l) => l.toLowerCase().includes(q));
+  ui.vocabCount.textContent = `· ${m.labels.length}`;
+  ui.vocabGrid.innerHTML = items.map((l) => signLink(m, l)).join("");
+  ui.vocabNote.textContent = m.dictionary ? "Click a sign to see how it is performed (external dictionary)." : m.note || "";
+}
+function highlightVocab(label) {
+  for (const el of [...ui.vocabGrid.children, ...ui.easyGrid.children]) el.classList.toggle("hit", el.dataset.l === label);
+}
+
 async function main() {
   bindEvents();
   try {

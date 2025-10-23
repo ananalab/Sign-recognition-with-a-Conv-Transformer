@@ -15,6 +15,32 @@ import subprocess
 import sys
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+from signrec import viz
+from signrec.landmarks import POSE_POS, SLICES
+from signrec.metrics import summary
+from signrec.preprocess import PreprocessConfig, canonicalize_hand, normalize, trim_handless
+from signrec.store import PackedDataset
+
+ROOT = Path(__file__).resolve().parents[1]
+FIG = ROOT / "paper" / "figures"
+TAB = ROOT / "paper" / "tables"
+DATASETS = {"kaggle_asl": "ASL (Google ISLR)", "lsfb_isol": "LSFB-ISOL"}
+GIF_SIGNS = {"kaggle_asl": ["hello", "thankyou"], "lsfb_isol": ["AUSSI"]}  # shown in the README
+
+
+def available() -> dict[str, PackedDataset]:
+    out = {}
+    for name in DATASETS:
+        p = ROOT / "data" / "processed" / name
+        if (p / "index.parquet").exists():
+            out[name] = PackedDataset(p)
+    return out
+
+
 def sign_gifs(dss: dict[str, PackedDataset]) -> None:
     """Animated skeleton of a typical clip for a few signs, in reports/figures/."""
     for name, ds in dss.items():
