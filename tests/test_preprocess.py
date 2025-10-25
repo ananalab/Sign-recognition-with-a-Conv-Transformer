@@ -83,3 +83,28 @@ def test_feature_count() -> None:
     )
 
 
+def test_spatial_augmentation_survives_normalisation() -> None:
+    """Spatial augmentation is applied after normalisation, so it must change the features."""
+    seq = random_sequence(T=30)
+    rng = np.random.default_rng(1)
+    a, _ = preprocess(seq, CFG)
+    b, _ = preprocess(seq, CFG, lambda s: spatial(s, rng, AugmentConfig(p_spatial=1.0)))
+    assert np.abs(a - b).max() > 1e-2
+
+
+def test_time_warp_is_monotonic_and_keeps_endpoints() -> None:
+    seq = random_sequence(T=50)
+    seq[:, 0, 0] = np.arange(50)  # a clock
+    out = time_warp(seq, np.random.default_rng(3), AugmentConfig(speed=(1.0, 1.0)))
+    clock = out[:, 0, 0]
+    assert out.shape[0] == 50 and (np.diff(clock) >= 0).all()
+    assert clock[0] == 0 and abs(clock[-1] - 49) < 1e-4
+
+
+def test_y_scale_equals_scaling_the_input() -> None:
+    seq = random_sequence(T=20)
+    scaled = seq.copy()
+    scaled[..., 1] *= 0.5625
+    np.testing.assert_allclose(
+        preprocess(seq, CFG, y_scale=0.5625)[0], preprocess(scaled, CFG)[0], atol=1e-5
+    )

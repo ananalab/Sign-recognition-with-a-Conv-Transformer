@@ -13,3 +13,9 @@ import asyncio
 import json
 from pathlib import Path
 
+import numpy as np
+import torch
+from playwright.async_api import async_playwright
+
+if __name__ == "__main__":
+    main()
