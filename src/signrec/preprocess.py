@@ -161,3 +161,11 @@ def fix_length(seq: np.ndarray, T: int, mode: str) -> tuple[np.ndarray, np.ndarr
     raise ValueError(f"unknown length_mode {mode!r}")
 
 
+def hand_local(seq: np.ndarray) -> np.ndarray:
+    """Dominant (right slot) hand relative to its wrist, scaled by the wrist-middle MCP length."""
+    hand = seq[:, _RH]
+    wrist = hand[:, :1]
+    size = np.linalg.norm(hand[:, 9, :2] - hand[:, 0, :2], axis=-1)[:, None, None]
+    return (hand - wrist) / np.maximum(size, _EPS)
+
+

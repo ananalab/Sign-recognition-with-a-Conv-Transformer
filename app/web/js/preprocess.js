@@ -8,6 +8,15 @@ const EPS = 1e-6;
 const [LH0, LH1] = SLICES.left_hand;
 const [RH0, RH1] = SLICES.right_hand;
 
+const at = (t, l, c) => (t * L + l) * 3 + c;
+
+export function featureCount(cfg) {
+  const d = cfg.use_z ? 3 : 2;
+  let n = landmarkIds(cfg).length * d;
+  if (cfg.hand_local) n += 21 * d;
+  return n * (cfg.velocity ? 2 : 1);
+}
+
 export function trimHandless(seq) {
   const { lh, rh } = handPresence(seq);
   let first = -1;

@@ -200,6 +200,65 @@ function highlightVocab(label) {
   for (const el of [...ui.vocabGrid.children, ...ui.easyGrid.children]) el.classList.toggle("hit", el.dataset.l === label);
 }
 
+async function analyseFile(file) {
+  if (!file || !app.holistic) return;
+  stopCamera();
+  setMode("file", false);
+  ui.empty.hidden = true;
+  ui.stage.classList.remove("mirrored");
+  app.fit = null;
+  app.replayId++;
+  ui.video.src = URL.createObjectURL(file);
+  ui.video.playbackRate = 1;
+  app.fileFrames = [];
+  setBadge("Analysing video…", "signing");
+  const step = (now, meta) => {
+    if (!app.fileFrames) return;
+    onFrame(detect(meta.mediaTime * 1000), now);
+    if (!ui.video.ended) ui.video.requestVideoFrameCallback(step);
+  };
+  ui.video.onended = async () => {
+    const frames = app.fileFrames || [];
+    setBadge("Recognised", "done");
+    await classify(frames, `video file`);
+    app.fileFrames = null;
+  };
+  ui.video.requestVideoFrameCallback(step);
+  await ui.video.play();
+}
+
+function holdStart() {
+  if (app.mode !== "hold" || app.holdFrames || !app.running) return;
+  app.holdFrames = [];
+  setBadge("Recording…", "signing");
+}
+function holdEnd() {
+  if (!app.holdFrames) return;
+  const frames = app.holdFrames;
+  app.holdFrames = null;
+  ui.recFill.style.width = "0%";
+  setBadge("Recognised", "done");
+  classify(frames, "hold");
+}
+
+function bindEvents() {
+  for (const b of ui.modePicker.children) b.onclick = () => setMode(b.dataset.mode);
+  $("btn-camera").onclick = () => (app.running ? stopCamera() : startCamera());
+  $("btn-camera-big").onclick = startCamera;
+  $("btn-file-big").onclick = () => ui.fileInput.click();
+  $("btn-example").onclick = playExample;
+  $("btn-example-big").onclick = playExample;
+  ui.fileInput.onchange = (e) => analyseFile(e.target.files[0]);
+  $("btn-clear").onclick = () => { app.history = []; renderHistory(); };
+  ui.optMirror.onchange = () => ui.stage.classList.toggle("mirrored", ui.optMirror.checked && app.running);
+  ui.optSkeleton.onchange = () => drawOverlay(app.lastFrame);
+  ui.vocabSearch.oninput = (e) => renderVocab(e.target.value);
+  window.addEventListener("keydown", (e) => { if (e.code === "Space" && e.target === document.body) { e.preventDefault(); holdStart(); } });
+  window.addEventListener("keyup", (e) => { if (e.code === "Space") holdEnd(); });
+  ui.stage.addEventListener("pointerdown", holdStart);
+  window.addEventListener("pointerup", holdEnd);
+}
+
 async function main() {
   bindEvents();
   try {
