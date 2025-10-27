@@ -88,6 +88,61 @@ def data_analyses(dss: dict[str, PackedDataset]) -> dict:
     return out
 
 
+def numbers_from_data(nums: Numbers) -> None:
+    stats = _load(ROOT / "reports" / "dataset_stats.json") or {}
+    if "kaggle_asl" in stats:
+        a = stats["kaggle_asl"]
+        nums["numAslSamples"] = f"{a['n_samples']:,}"
+        nums["numAslClasses"] = a["n_classes"]
+        nums["numAslSigners"] = a["n_signers"]
+    if "lsfb_isol" in stats:
+        b = stats["lsfb_isol"]
+        nums["numLsfbClasses"] = b["n_classes"]
+        nums["numLsfbFps"] = int(b["fps"])
+    for key, name in (("Asl", "kaggle_asl"), ("Lsfb", "lsfb_isol")):
+        if name in stats:
+            st = stats[name]
+            nums[f"num{key}DurMedian"] = f"{st['duration_median_s']:.2f}"
+            nums[f"num{key}NoHandPct"] = f"{100 * st['missing']['any_hand']:.1f}"
+            nums[f"num{key}FramesMedian"] = f"{st['frames_median']:.0f}"
+    an = _load(ROOT / "reports" / "dataset_analyses.json") or {}
+    for key, k in (("NoseAsl", "nose_ratio_asl"), ("NoseLsfbRaw", "nose_ratio_lsfb_raw"),
+                   ("NoseLsfbCorr", "nose_ratio_lsfb_corrected"),
+                   ("NoseLsfbFourThree", "nose_ratio_lsfb_four_three")):  # fmt: skip
+        if k in an:
+            nums[f"num{key}"] = f"{an[k]:.2f}"
+    if "asl_handless_outside_sign_share" in an:
+        nums["numHandlessOutside"] = pct(an["asl_handless_outside_sign_share"])
+        nums["numHandlessSample"] = f"{an['asl_handless_sample_clips']:,}"
+    if "lsfb_test_top10_share" in an:
+        nums["numLsfbTopTenShare"] = pct(an["lsfb_test_top10_share"], 0)
+    per_class = _load(ROOT / "reports" / "lsfb_train_per_class.json")
+    if per_class:
+        nums["numLsfbMedianPerClass"] = f"{per_class['median']:.0f}"
+    lsfb_meta = _load(ROOT / "reports" / "lsfb_selection.json")
+    if lsfb_meta:
+        nums["numLsfbAllInstances"] = f"{lsfb_meta['all_instances']:,}"
+        nums["numLsfbAllGlosses"] = f"{lsfb_meta['all_glosses']:,}"
+        nums["numLsfbAllSigners"] = lsfb_meta["all_signers"]
+        nums["numLsfbDroppedPct"] = f"{100 * lsfb_meta['dropped_share']:.1f}"
+    bp = _load(ROOT / "reports" / "browser_parity.json")
+    if bp:
+        nums["numBrowserSame"] = f"{bp['same_top1']}/{bp['n_clips']}"
+        nums["numBrowserDiff"] = (
+            f"{bp['max_abs_prob_diff']:.0e}".replace("e-0", "\\times10^{-").replace(
+                "e-", "\\times10^{-"
+            )
+            + "}"
+        )
+        nums["numExampleAcc"] = pct(bp["top1_on_examples"])
+    js_parity_report()
+    par = _load(ROOT / "reports" / "js_parity.json")
+    if par:
+        e = max(r["maxDiff"] for r in par)
+        mant, exp = f"{e:.0e}".split("e")
+        nums["numJsParity"] = f"${mant}\\times10^{{{int(exp)}}}$"
+
+
 def fig_training_curves() -> None:
     fig, ax = plt.subplots(figsize=(viz.COL_W, 1.9))
     drawn = False
@@ -111,5 +166,49 @@ def fig_training_curves() -> None:
     ax.legend(loc="lower right")
     fig.tight_layout()
     viz.save(fig, FIG / "training_curves")
+
+
+def fig_per_signer_and_missing() -> None:
+    reps = {name: [eval_report(r, "test") for r in seeds(prefix)]
+            for prefix, name in (("asl-transformer", "Conv-Transformer"), ("asl-gru", "BiGRU"))}  # fmt: skip
+    reps = {k: [r for r in v if r] for k, v in reps.items()}
+    reps = {k: v for k, v in reps.items() if v}
+    if not reps:
+        return
+    fig, axes = plt.subplots(
+        1, 2, figsize=(viz.FULL_W, 1.95), gridspec_kw={"width_ratios": [1, 1.25]}
+    )
+    ax = axes[0]
+    signers = sorted({d["g"] for r in next(iter(reps.values())) for d in r["by_signer"]})
+    for k, (name, rs) in enumerate(reps.items()):
+        acc = (
+            np.array([[{d["g"]: d["acc"] for d in r["by_signer"]}[s] for s in signers] for r in rs])
+            * 100
+        )
+        x = np.arange(len(signers)) + (k - 0.5) * 0.18
+        ax.errorbar(x, acc.mean(0), yerr=acc.std(0) if len(rs) > 1 else None, fmt="o", ms=4,
+                    color=viz.SERIES[k], label=name, capsize=2, lw=1)  # fmt: skip
+    ax.set_xticks(np.arange(len(signers)), [f"signer {s}" for s in signers])
+    ax.set_ylabel("test top-1 (%)")
+    ax.set_title("(a) accuracy per unseen signer")
+    ax.set_xlim(-0.5, len(signers) - 0.5)
+    ax = axes[1]
+    first = next(iter(reps.values()))
+    bins = [d["bin"] for d in first[0]["by_missing"]]
+    w = 0.38
+    for k, (name, rs) in enumerate(reps.items()):
+        acc = np.array([[d["acc"] for d in r["by_missing"]] for r in rs]) * 100
+        n = [d["n"] for d in rs[0]["by_missing"]]
+        x = np.arange(len(bins)) + (k - 0.5) * w
+        ax.bar(x, np.nan_to_num(acc.mean(0)), w * 0.92, color=viz.SERIES[k], label=name)
+    ax.set_xticks(np.arange(len(bins)), [f"{b}\n(n={c:,})" for b, c in zip(bins, n, strict=True)])
+    ax.set_xlabel("share of frames with no hand detected")
+    ax.set_ylabel("test top-1 (%)")
+    handles, labels = ax.get_legend_handles_labels()
+    ax.set_title("(b) accuracy vs. missing hands")
+    ax.grid(axis="x", visible=False)
+    fig.tight_layout(w_pad=1.5, rect=(0, 0, 1, 0.9))
+    fig.legend(handles, labels, loc="upper center", ncols=2, bbox_to_anchor=(0.5, 1.0))
+    viz.save(fig, FIG / "signers_missing")
 
 

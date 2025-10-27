@@ -86,3 +86,11 @@ def onnx_predict(sess: ort.InferenceSession, x: np.ndarray, mask: np.ndarray) ->
     return sess.run(["probs"], {"x": x.astype(np.float32), "mask": mask.astype(np.float32)})[0]
 
 
+def parity(model: nn.Module, sess: ort.InferenceSession, x: np.ndarray, mask: np.ndarray) -> float:
+    """Max absolute difference between PyTorch and ONNX probabilities."""
+    model.eval()
+    with torch.no_grad():
+        ref = model(torch.from_numpy(x), torch.from_numpy(mask.astype(bool))).softmax(-1).numpy()
+    return float(np.abs(ref - onnx_predict(sess, x, mask)).max())
+
+

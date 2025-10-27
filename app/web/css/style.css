@@ -95,3 +95,14 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
 .rec-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; }
 .rec-fill { height: 100%; width: 0; background: var(--rec); transition: width 0.08s linear; }
 
+/* side blocks */
+.block { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.block:first-child { padding-top: 0; }
+.block:last-child { border-bottom: 0; }
+.block-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+
+.top1 { display: flex; align-items: baseline; gap: 12px; }
+.gloss { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; word-break: break-word; }
+.conf { font: 500 15px var(--mono); color: var(--ink-2); }
+.prediction.uncertain .gloss { color: var(--ink-2); }
+

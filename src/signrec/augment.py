@@ -93,3 +93,8 @@ def spatial(seq: np.ndarray, rng: np.random.Generator, cfg: AugmentConfig) -> np
     return out
 
 
+def make_augmenter(
+    cfg: AugmentConfig, rng: np.random.Generator
+) -> tuple[Callable[[np.ndarray], np.ndarray], Callable[[np.ndarray], np.ndarray]]:
+    """The two stages bound to one random generator: ``(raw_fn, spatial_fn)``."""
+    return (lambda s: augment_raw(s, rng, cfg)), (lambda s: spatial(s, rng, cfg))
