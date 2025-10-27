@@ -67,3 +67,32 @@ def toy_dataset(tmp_path):
     return tmp_path
 
 
+def test_end_to_end_training(toy_dataset, tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(tr, "ROOT", tmp_path)
+    (tmp_path / "configs").mkdir()
+    (tmp_path / "configs/pre.yaml").write_text(json.dumps(PCFG.to_dict()))
+    cfg = load_config(
+        "configs/train.yaml",
+        [
+            f"data.root={toy_dataset / 'toy'}",
+            f"data.split={toy_dataset / 'split.json'}",
+            f"preprocess={tmp_path / 'configs/pre.yaml'}",
+            "augment=configs/augment.yaml",
+            "train.epochs=8",
+            "train.warmup_epochs=0",
+            "train.num_workers=0",
+            "train.device=cpu",
+            "train.batch_size=16",
+            "mlflow=false",
+            "run_name=toy",
+        ],
+    )
+    cfg.model = {"name": "gru", **SMALL["gru"]}
+    shutil.copy("configs/augment.yaml", tmp_path / "configs/augment.yaml")
+    res = train(cfg)
+    assert res["best_val"]["top1"] > 0.5
+    ckpt = tmp_path / res["checkpoint"]
+    assert ckpt.exists() and (tmp_path / "reports/runs/toy/history.csv").exists()
+    other = build_model("gru", PCFG.n_features, 7, **SMALL["gru"])  # new head size
+    missing = load_encoder(other, ckpt)
+    assert all(k.startswith("head.") for k in missing)

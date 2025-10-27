@@ -17,5 +17,9 @@ import numpy as np
 import torch
 from playwright.async_api import async_playwright
 
+from local_server import serve
+from signrec.checkpoint import load_checkpoint
+from signrec.preprocess import PreprocessConfig, preprocess
+
 if __name__ == "__main__":
     main()

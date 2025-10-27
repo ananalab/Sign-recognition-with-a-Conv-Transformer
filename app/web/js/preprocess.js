@@ -3,6 +3,11 @@
 
 import { MIRROR, N_LANDMARKS, POSE_POS, SLICES } from "./landmarks.js";
 
+const L = N_LANDMARKS;
+const EPS = 1e-6;
+const [LH0, LH1] = SLICES.left_hand;
+const [RH0, RH1] = SLICES.right_hand;
+
 export function trimHandless(seq) {
   const { lh, rh } = handPresence(seq);
   let first = -1;
