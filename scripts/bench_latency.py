@@ -10,6 +10,13 @@ backend, one thread, i.e. the configuration of the static demo (no cross-origin 
 
 from __future__ import annotations
 
+import argparse
+import asyncio
+import json
+import shutil
+import tempfile
+from pathlib import Path
+
 from playwright.async_api import async_playwright
 
 async def browser_bench(folder: Path, models: list[tuple[str, int, int]]) -> dict:

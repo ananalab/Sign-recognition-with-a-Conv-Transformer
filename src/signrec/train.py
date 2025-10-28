@@ -314,3 +314,13 @@ class _MlflowTracker:
         self.mlflow.end_run()
 
 
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", default="configs/train.yaml")
+    ap.add_argument("overrides", nargs="*", help="OmegaConf dotlist overrides (key=value)")
+    args = ap.parse_args()
+    print(json.dumps(train(load_config(args.config, args.overrides)), indent=1))
+
+
+if __name__ == "__main__":
+    main()

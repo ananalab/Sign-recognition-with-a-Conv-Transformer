@@ -94,3 +94,66 @@ def parity(model: nn.Module, sess: ort.InferenceSession, x: np.ndarray, mask: np
     return float(np.abs(ref - onnx_predict(sess, x, mask)).max())
 
 
+def benchmark(sess: ort.InferenceSession, T: int, F: int, n: int = 500) -> dict[str, float]:
+    x = np.random.default_rng(0).standard_normal((1, T, F)).astype(np.float32)
+    m = np.ones((1, T), np.float32)
+    for _ in range(20):
+        onnx_predict(sess, x, m)
+    times = []
+    for _ in range(n):
+        t0 = time.perf_counter()
+        onnx_predict(sess, x, m)
+        times.append((time.perf_counter() - t0) * 1e3)
+    return {"p50_ms": float(np.percentile(times, 50)), "p95_ms": float(np.percentile(times, 95))}
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ckpt", required=True)
+    ap.add_argument("--data", default=None, help="packed dataset for parity/accuracy checks")
+    ap.add_argument("--split", default=None)
+    ap.add_argument("--out", default=None, help="default: next to the checkpoint")
+    ap.add_argument("--n-eval", type=int, default=2000)
+    args = ap.parse_args()
+
+    model, ck = load_checkpoint(args.ckpt)
+    pcfg = PreprocessConfig.from_dict(ck["preprocess"])
+    out_dir = Path(args.out) if args.out else Path(args.ckpt).parent
+    fp32 = export_onnx(model, pcfg.T, pcfg.n_features, out_dir / "model_fp32.onnx")
+    int8 = quantize(fp32, out_dir / "model_int8.onnx")
+    report: dict = {"run": ck["run"], "T": pcfg.T, "n_features": pcfg.n_features}
+
+    xs = ms = ys = None
+    if args.data and args.split:
+        ds = PackedDataset(args.data)
+        rows = split_indices(ds.index, load_split(args.split))["val"]
+        lab = {g: i for i, g in enumerate(ck["labels"])}
+        rows = [r for r in rows if ds.index.label.iloc[r] in lab][: args.n_eval]
+        feats = [preprocess(ds.sequence(r), pcfg, y_scale=ds.y_scale) for r in rows]
+        xs = np.stack([f[0] for f in feats])
+        ms = np.stack([f[1] for f in feats])
+        ys = np.array([lab[ds.index.label.iloc[r]] for r in rows])
+
+    for name, path in (("fp32", fp32), ("int8", int8)):
+        sess = session(path)
+        entry = {"size_mb": path.stat().st_size / 2**20, **benchmark(sess, pcfg.T, pcfg.n_features)}
+        if xs is not None:
+            probs = np.concatenate(
+                [
+                    onnx_predict(sess, xs[i : i + 256], ms[i : i + 256])
+                    for i in range(0, len(xs), 256)
+                ]
+            )
+            entry["val_top1"] = float((probs.argmax(1) == ys).mean())
+            entry["max_abs_diff_vs_torch"] = parity(model, sess, xs[:100], ms[:100])
+        report[name] = entry
+        print(name, json.dumps(entry))
+
+    labels_path = out_dir / "labels.json"
+    labels_path.write_text(json.dumps(ck["labels"], ensure_ascii=False))
+    (out_dir / "preprocess.json").write_text(json.dumps(pcfg.to_dict(), indent=1))
+    (out_dir / "export_report.json").write_text(json.dumps(report, indent=1))
+
+
+if __name__ == "__main__":
+    main()
