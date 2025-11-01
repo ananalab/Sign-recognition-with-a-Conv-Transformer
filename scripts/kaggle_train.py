@@ -18,6 +18,17 @@ Experiment file (YAML)::
         evaluate: [val, test]    # optional
 """
 
+from __future__ import annotations
+
+import argparse
+import base64
+import io
+import json
+import shutil
+import subprocess
+import tarfile
+from pathlib import Path
+
 RUNNER = r'''
 import base64, glob, io, json, os, shutil, subprocess, sys, tarfile
 

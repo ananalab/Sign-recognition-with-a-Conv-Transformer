@@ -14,6 +14,9 @@ import pandas as pd
 
 from signrec.splits import random_split, save_split, signer_split, split_indices
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
 def lsfb_selection_report(index: pd.DataFrame, split: dict) -> None:
     """Vocabulary-selection statistics quoted in the paper."""
     inst = pd.read_csv(ROOT / "data/raw/lsfb_isol/instances.csv")
