@@ -25,5 +25,20 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "app" / "web"
 
 
+def python_probs() -> tuple[list[np.ndarray], list[str], dict]:
+    ex = json.loads((WEB / "examples/lsfb.json").read_text())
+    rep = json.loads((WEB / "models/lsfb/export_report.json").read_text())
+    model, ck = load_checkpoint(ROOT / "models" / rep["run"] / "best.pt")
+    pc = PreprocessConfig.from_dict(ck["preprocess"])
+    out = []
+    for c in ex["clips"]:
+        seq = np.array([np.nan if v is None else v for v in c["data"]], np.float32)
+        x, m = preprocess(seq.reshape(c["T"], -1, 3), pc, y_scale=ex["y_scale"])
+        with torch.no_grad():
+            logits = model(torch.from_numpy(x[None]), torch.from_numpy(m[None]))
+        out.append(logits.softmax(-1).numpy()[0])
+    return out, ck["labels"], ex
+
+
 if __name__ == "__main__":
     main()

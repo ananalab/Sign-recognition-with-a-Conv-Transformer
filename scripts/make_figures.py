@@ -41,6 +41,65 @@ def available() -> dict[str, PackedDataset]:
     return out
 
 
+def part_missing_rates(ds: PackedDataset, max_n: int = 20000, seed: int = 0) -> pd.DataFrame:
+    """Share of frames where each body part is entirely missing (random subsample)."""
+    rng = np.random.default_rng(seed)
+    rows = rng.permutation(len(ds))[:max_n]
+    acc = {k: [] for k in ("left_hand", "right_hand", "any_hand", "pose", "lips")}
+    for r in rows:
+        s = ds.sequence(int(r))[..., 0]
+        miss = {
+            p: np.isnan(s[:, SLICES[p]]).all(1) for p in ("left_hand", "right_hand", "pose", "lips")
+        }
+        miss["any_hand"] = miss["left_hand"] & miss["right_hand"]
+        for k, v in miss.items():
+            acc[k].append(v.mean())
+    return pd.DataFrame({k: [np.mean(v)] for k, v in acc.items()})
+
+
+def fig_dataset_overview(dss: dict[str, PackedDataset]) -> dict:
+    """(a) examples per class, (b) clip duration, (c) examples per signer."""
+    fig, axes = plt.subplots(1, 3, figsize=(viz.FULL_W, 1.9))
+    stats = {}
+    for k, (name, ds) in enumerate(dss.items()):
+        idx = ds.index
+        color = viz.SERIES[k]
+        per_class = idx.label.value_counts().to_numpy()
+        axes[0].plot(np.arange(1, len(per_class) + 1), per_class, color=color, label=DATASETS[name])
+        dur = idx.n_frames / idx.fps
+        bins = np.linspace(0, 6, 61)
+        axes[1].hist(
+            dur.clip(upper=6), bins=bins, histtype="step", density=True, color=color, lw=1.2
+        )
+        per_signer = np.sort(idx.signer_id.value_counts().to_numpy())[::-1]
+        axes[2].plot(np.arange(1, len(per_signer) + 1), per_signer, color=color)
+        stats[name] = {
+            "n_samples": int(len(idx)),
+            "n_classes": int(idx.label.nunique()),
+            "n_signers": int(idx.signer_id.nunique()),
+            "per_class_min": int(per_class.min()),
+            "per_class_median": float(np.median(per_class)),
+            "per_class_max": int(per_class.max()),
+            "duration_median_s": float(dur.median()),
+            "frames_median": float(idx.n_frames.median()),
+            "frames_p95": float(idx.n_frames.quantile(0.95)),
+            "fps": float(idx.fps.iloc[0]),
+        }
+    axes[0].set(
+        xlabel="class rank", ylabel="examples", title="(a) examples per class", yscale="log"
+    )
+    axes[1].set(
+        xlabel="clip duration (s; last bin ≥ 6 s)", ylabel="density", title="(b) clip duration"
+    )
+    axes[2].set(
+        xlabel="signer rank", ylabel="examples", title="(c) examples per signer", yscale="log"
+    )
+    axes[0].legend(loc="upper right")
+    fig.tight_layout(w_pad=1.2)
+    viz.save(fig, FIG / "dataset_overview")
+    return stats
+
+
 def sign_gifs(dss: dict[str, PackedDataset]) -> None:
     """Animated skeleton of a typical clip for a few signs, in reports/figures/."""
     for name, ds in dss.items():
@@ -210,5 +269,21 @@ def fig_per_signer_and_missing() -> None:
     fig.tight_layout(w_pad=1.5, rect=(0, 0, 1, 0.9))
     fig.legend(handles, labels, loc="upper center", ncols=2, bbox_to_anchor=(0.5, 1.0))
     viz.save(fig, FIG / "signers_missing")
+
+
+def transfer_checks(nums: Numbers) -> None:
+    """Linear probe and low-learning-rate fine-tuning (validation top-1, seed 0)."""
+    for key, run in (("ProbeAll", "lsfb-probe-nall-s0"), ("ProbeFive", "lsfb-probe-n5-s0"),
+                     ("LowlrTwentyFive", "lsfb-ftlowlr-n25-s0"),
+                     ("ScratchTwentyFive", "lsfb-scratch-n25-s0"), ("FtTwentyFive", "lsfb-ft-n25-s0"),
+                     ("ScratchFive", "lsfb-scratch-n5-s0"), ("FtFive", "lsfb-ft-n5-s0")):  # fmt: skip
+        m = run_metrics(run)
+        if m:
+            nums[f"num{key}"] = pct(m["best_val"]["top1"])
+    base = _load(ROOT / "reports" / "baselines" / "lsfb_isol_lsfb_isol_signer.json")
+    if base:
+        nums["numLsfbLogregVal"] = pct(base["logreg"]["val"]["top1"])
+        nums["numLsfbLogregTest"] = pct(base["logreg"]["test"]["top1"])
+        nums["numLsfbLogregTestFOne"] = pct(base["logreg"]["test"]["macro_f1"])
 
 
