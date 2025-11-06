@@ -103,3 +103,25 @@ _HAND_EDGES: Final[tuple[tuple[int, int], ...]] = (
 )  # fmt: skip
 
 
+def skeleton_edges() -> list[tuple[int, int]]:
+    """Edges between unified landmarks, for visualisation."""
+    edges: list[tuple[int, int]] = []
+    for part in ("left_hand", "right_hand"):
+        s = SLICES[part].start
+        edges += [(s + a, s + b) for a, b in _HAND_EDGES]
+    p = POSE_POS
+    edges += [
+        (p["l_shoulder"], p["r_shoulder"]),
+        (p["l_shoulder"], p["l_elbow"]),
+        (p["l_elbow"], p["l_wrist"]),
+        (p["r_shoulder"], p["r_elbow"]),
+        (p["r_elbow"], p["r_wrist"]),
+    ]
+    # LIPS_IDX lists the upper arc corner-to-corner then the lower arc in the same direction,
+    # so a closed ring is: upper arc + reversed lower arc.
+    s = SLICES["lips"].start
+    outer = [s + i for i in [*range(0, 11), *range(19, 10, -1)]]
+    inner = [s + i for i in [*range(20, 30), 39, *range(38, 29, -1)]]
+    for ring in (outer, inner):
+        edges += [(ring[i], ring[(i + 1) % len(ring)]) for i in range(len(ring))]
+    return edges

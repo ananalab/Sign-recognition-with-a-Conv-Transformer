@@ -29,6 +29,8 @@ import subprocess
 import tarfile
 from pathlib import Path
 
+import yaml
+
 RUNNER = r'''
 import base64, glob, io, json, os, shutil, subprocess, sys, tarfile
 

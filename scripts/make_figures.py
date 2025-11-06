@@ -202,6 +202,28 @@ def numbers_from_data(nums: Numbers) -> None:
         nums["numJsParity"] = f"${mant}\\times10^{{{int(exp)}}}$"
 
 
+def table_datasets() -> None:
+    stats = _load(ROOT / "reports" / "dataset_stats.json") or {}
+    splits = {"kaggle_asl": "kaggle_asl_signer.json", "lsfb_isol": "lsfb_isol_signer.json"}
+    rows = []
+    for name, st in stats.items():
+        sp = _load(ROOT / "splits" / splits[name])
+        s = sp["signers"] if sp else {"train": [], "val": [], "test": []}
+        rows.append(
+            f"{DATASETS[name]} & {st['n_classes']} & {st['n_samples']:,} & {st['n_signers']} & "
+            f"{len(s['train'])}/{len(s['val'])}/{len(s['test'])} & {st['per_class_min']}--"
+            f"{st['per_class_max']} & {st['duration_median_s']:.2f}\\,s & {int(st['fps'])} & "
+            f"{100 * st['missing']['any_hand']:.0f}\\,\\% \\\\"
+        )
+    body = "\n".join(rows)
+    (TAB / "datasets.tex").write_text(
+        "\\begin{tabular}{lrrrcrrrr}\n\\toprule\n"
+        " & & & & Signers & Clips & & & No \\\\\n"
+        "Dataset & Classes & Clips & Signers & tr/val/test & per class & Duration & fps & hand \\\\\n"
+        "\\midrule\n" + body + "\n\\bottomrule\n\\end{tabular}\n"
+    )
+
+
 def fig_training_curves() -> None:
     fig, ax = plt.subplots(figsize=(viz.COL_W, 1.9))
     drawn = False
@@ -285,5 +307,51 @@ def transfer_checks(nums: Numbers) -> None:
         nums["numLsfbLogregVal"] = pct(base["logreg"]["val"]["top1"])
         nums["numLsfbLogregTest"] = pct(base["logreg"]["test"]["top1"])
         nums["numLsfbLogregTestFOne"] = pct(base["logreg"]["test"]["macro_f1"])
+
+
+def export_tables(nums: Numbers) -> None:
+    """Size and latency (native and browser) of FP32 / INT8 models; INT8 accuracy if exported."""
+    lat = _load(ROOT / "reports" / "latency.json")
+    if not lat:
+        return
+    acc = {}
+    for mid in ("asl", "lsfb"):
+        rep = _load(ROOT / "app" / "web" / "models" / mid / "export_report.json")
+        if rep:
+            acc[rep["run"].split("-s")[0]] = rep
+    rows = []
+    for arch, name in (("asl-transformer", "Conv-Transformer"), ("asl-gru", "BiGRU")):
+        for tag, prec in (("fp32", "FP32"), ("int8", "INT8")):
+            e = lat.get(f"{arch}_{tag}")
+            if not e:
+                continue
+            web = e.get("browser", {})
+            top1 = acc.get(arch, {}).get(tag, {}).get("val_top1")
+            rows.append(
+                f"{name} & {prec} & {e['size_mb']:.1f}\\,MB & {e['native']['p50_ms']:.1f} & "
+                f"{web.get('p50_ms', float('nan')):.1f} & {web.get('p95_ms', float('nan')):.1f} & "
+                f"{pct(top1) if top1 is not None else '--'} \\\\"
+            )
+    (TAB / "export.tex").write_text(
+        "\\begin{tabular}{llrrrrr}\n\\toprule\n"
+        " & & & Native & \\multicolumn{2}{c}{Browser (WebAssembly)} & \\\\\n\\cmidrule(lr){5-6}\n"
+        "Model & Precision & Size & p50 (ms) & p50 (ms) & p95 (ms) & Val.\\ top-1 \\\\\n\\midrule\n"
+        + "\n".join(rows)
+        + "\n\\bottomrule\n\\end{tabular}\n"
+    )
+    t8 = lat.get("asl-transformer_int8")
+    if t8:
+        nums["numIntSizeMB"] = f"{t8['size_mb']:.1f}"
+        nums["numIntLatency"] = f"{t8.get('browser', t8['native'])['p50_ms']:.0f}"
+        nums["numFpSizeMB"] = f"{lat['asl-transformer_fp32']['size_mb']:.1f}"
+        nums["numIntNative"] = f"{t8['native']['p50_ms']:.1f}"
+        nums["numFpNative"] = f"{lat['asl-transformer_fp32']['native']['p50_ms']:.1f}"
+        fp = lat["asl-transformer_fp32"]
+        nums["numFpBrowser"] = f"{fp.get('browser', fp['native'])['p50_ms']:.0f}"
+        nums["numIntSlowdown"] = f"{t8['native']['p50_ms'] / fp['native']['p50_ms']:.1f}"
+        nums["numIntShrink"] = f"{fp['size_mb'] / t8['size_mb']:.1f}"
+        g = lat.get("asl-gru_fp32")
+        if g:
+            nums["numGruBrowser"] = f"{g.get('browser', g['native'])['p50_ms']:.0f}"
 
 
