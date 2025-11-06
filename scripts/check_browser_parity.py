@@ -21,5 +21,9 @@ from local_server import serve
 from signrec.checkpoint import load_checkpoint
 from signrec.preprocess import PreprocessConfig, preprocess
 
+ROOT = Path(__file__).resolve().parents[1]
+WEB = ROOT / "app" / "web"
+
+
 if __name__ == "__main__":
     main()

@@ -17,6 +17,27 @@ export function featureCount(cfg) {
   return n * (cfg.velocity ? 2 : 1);
 }
 
+export function landmarkIds(cfg) {
+  const ids = [];
+  for (const p of cfg.parts) for (let i = SLICES[p][0]; i < SLICES[p][1]; i++) ids.push(i);
+  return ids;
+}
+
+function handPresence(seq) {
+  const { T, data } = seq;
+  const lh = new Array(T).fill(false);
+  const rh = new Array(T).fill(false);
+  for (let t = 0; t < T; t++) {
+    for (let l = LH0; l < LH1; l++) if (!Number.isNaN(data[(t * L + l) * 3])) { lh[t] = true; break; }
+    for (let l = RH0; l < RH1; l++) if (!Number.isNaN(data[(t * L + l) * 3])) { rh[t] = true; break; }
+  }
+  return { lh, rh };
+}
+
+function slice(seq, t0, t1) {
+  return { T: t1 - t0, data: seq.data.slice(t0 * L * 3, t1 * L * 3) };
+}
+
 export function trimHandless(seq) {
   const { lh, rh } = handPresence(seq);
   let first = -1;
@@ -38,6 +59,13 @@ export function mirror(seq) {
     }
   }
   return { T, data: out };
+}
+
+export function canonicalizeHand(seq) {
+  const { lh, rh } = handPresence(seq);
+  const nl = lh.filter(Boolean).length;
+  const nr = rh.filter(Boolean).length;
+  return nl > nr ? mirror(seq) : seq;
 }
 
 export function normalize(seq, minShoulderWidth) {

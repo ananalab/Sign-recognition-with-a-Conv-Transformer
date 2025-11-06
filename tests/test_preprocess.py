@@ -75,6 +75,25 @@ def test_all_nan_sequence() -> None:
     assert np.isfinite(x).all() and (x == 0).all()
 
 
+def test_trim_removes_handless_borders() -> None:
+    seq = random_sequence(T=10)
+    seq[:3, :42] = np.nan
+    seq[8:, :42] = np.nan
+    assert trim_handless(seq).shape[0] == 5
+
+
+def test_resample_endpoints_and_nan_fallback() -> None:
+    seq = random_sequence(T=7)
+    seq[3, 0, 0] = np.nan
+    out = resample(seq, 13)
+    np.testing.assert_allclose(out[0], seq[0])
+    np.testing.assert_allclose(out[-1], seq[-1])
+    # a missing value is filled from the nearest source frame only when that frame exists
+    nearest = np.floor(np.linspace(0, 6, 13) + 0.5).astype(int)  # ties go to the later frame
+    assert (np.isnan(out[:, 0, 0]) == (nearest == 3)).all()
+    assert fix_length(seq, 4, "pad")[1].all()
+
+
 def test_feature_count() -> None:
     assert CFG.n_features == (89 * 2 + 21 * 2) * 2
     assert (

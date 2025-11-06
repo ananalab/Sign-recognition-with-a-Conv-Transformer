@@ -19,6 +19,10 @@ from pathlib import Path
 
 from playwright.async_api import async_playwright
 
+from local_server import serve
+from signrec.checkpoint import load_checkpoint
+from signrec.export import benchmark, export_onnx, quantize, session
+
 async def browser_bench(folder: Path, models: list[tuple[str, int, int]]) -> dict:
     page_src = PAGE.replace("__ORT__", ORT_WEB).replace("__MODELS__", json.dumps(models))
     (folder / "index.html").write_text(page_src)
