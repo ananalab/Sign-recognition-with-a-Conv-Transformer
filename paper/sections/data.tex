@@ -1,0 +1,20 @@
+\section{Data}
+\label{sec:data}
+
+\begin{table}[t]
+  \centering
+  \caption{Datasets after conversion to the unified format. Durations are medians; ``no hand'' is
+  the share of frames in which neither hand is detected.}
+  \label{tab:datasets}
+  \small
+  \input{tables/datasets.tex}
+\end{table}
+
+\paragraph{Google ISLR (ASL).}
+The competition data \citep{kaggle_islr} contain \numAslSamples{} sequences of \numAslClasses{} ASL
+signs produced by \numAslSigners{} participants. Each frame provides the 543 MediaPipe Holistic
+landmarks (468 face, 33 body and 21 per hand); no video is released. Signs were recorded one at a
+time with a smartphone, in a dictionary-like setting. The landmarks come from the legacy MediaPipe
+Holistic \emph{solution}, an older pipeline than the MediaPipe Tasks API used in the browser
+(\cref{sec:runtime}).
+

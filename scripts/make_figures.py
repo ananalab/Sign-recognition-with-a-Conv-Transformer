@@ -147,6 +147,10 @@ def data_analyses(dss: dict[str, PackedDataset]) -> dict:
     return out
 
 
+def eval_report(run: str, subset: str) -> dict | None:
+    return _load(ROOT / "reports" / "eval" / f"{run}_{subset}.json")
+
+
 def numbers_from_data(nums: Numbers) -> None:
     stats = _load(ROOT / "reports" / "dataset_stats.json") or {}
     if "kaggle_asl" in stats:

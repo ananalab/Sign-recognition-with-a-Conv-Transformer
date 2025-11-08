@@ -102,6 +102,19 @@ def test_feature_count() -> None:
     )
 
 
+def test_augment_is_pure_and_valid() -> None:
+    rng = np.random.default_rng(0)
+    seq = random_sequence(T=40)
+    ref = seq.copy()
+    raw, spa = make_augmenter(AugmentConfig(), rng)
+    out = raw(seq)
+    np.testing.assert_array_equal(seq, ref)
+    assert out.ndim == 3 and out.shape[1:] == seq.shape[1:] and out.shape[0] >= 2
+    x, _ = preprocess(out, CFG, spa)
+    assert np.isfinite(x).all()
+    assert augment_raw(seq[:1], rng, AugmentConfig()).shape[0] == 1
+
+
 def test_spatial_augmentation_survives_normalisation() -> None:
     """Spatial augmentation is applied after normalisation, so it must change the features."""
     seq = random_sequence(T=30)
