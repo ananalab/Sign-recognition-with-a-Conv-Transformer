@@ -32,3 +32,14 @@ Decisions, rationale and measured results, in chronological order.
 
 ## Baselines (ASL, signer-independent)
 
+| Model | Val top-1 | Test top-1 | Test top-5 | Test macro-F1 |
+|---|---|---|---|---|
+| Chance | 0.4 % | 0.4 % | 2.0 % |, |
+| Stat. features + logistic regression | 47.9 % | 42.1 % | 69.4 % | 41.9 % |
+| Stat. features + LightGBM | 45.2 % | 33.8 % | 61.5 % | 33.4 % |
+
+- First LightGBM run reached only 18.8 % (val): early stopping on the multiclass log-loss fired
+  far too early. Stopping on the classification error fixed it (best iteration 293).
+- The val->test gap is larger for LightGBM (−11 pts) than for the linear model (−6 pts):
+  trees overfit signer-specific statistics.
+

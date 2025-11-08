@@ -169,3 +169,47 @@ def hand_local(seq: np.ndarray) -> np.ndarray:
     return (hand - wrist) / np.maximum(size, _EPS)
 
 
+def preprocess(
+    seq: np.ndarray,
+    cfg: PreprocessConfig,
+    spatial_aug: Callable[[np.ndarray], np.ndarray] | None = None,
+    y_scale: float = 1.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Turn a unified sequence ``[T, L, 3]`` (NaN = missing) into ``(features, mask)``.
+
+    Shapes: features ``[cfg.T, F]``, mask ``[cfg.T]``.
+
+    ``y_scale`` makes image coordinates isotropic: MediaPipe divides x by the frame width and y by
+    its height, so y is multiplied by height / width (display aspect) of the source video.
+    ``spatial_aug`` (training only) is applied to the normalised coordinates.
+    """
+    seq = np.asarray(seq, dtype=np.float32)
+    if seq.ndim != 3 or seq.shape[1] != N_LANDMARKS or seq.shape[0] == 0:
+        raise ValueError(f"expected [T>0, {N_LANDMARKS}, 3], got {seq.shape}")
+    if y_scale != 1.0:
+        seq = seq.copy()
+        seq[..., 1] *= np.float32(y_scale)
+    if cfg.trim:
+        seq = trim_handless(seq)
+    if cfg.canonical_hand:
+        seq = canonicalize_hand(seq)
+    seq = normalize(seq, cfg.min_shoulder_width)
+    if spatial_aug is not None:
+        seq = spatial_aug(seq)
+    seq, mask = fix_length(seq, cfg.T, cfg.length_mode)
+
+    d = cfg.n_dims
+    blocks = [seq[:, cfg.landmark_ids, :d]]
+    if cfg.hand_local:
+        blocks.append(hand_local(seq)[..., :d])
+    pos = np.concatenate(blocks, axis=1).reshape(cfg.T, -1)
+    feats = [pos]
+    if cfg.velocity:
+        vel = np.zeros_like(pos)
+        vel[1:] = pos[1:] - pos[:-1]
+        vel[1:][~(mask[1:] & mask[:-1])] = 0.0
+        feats.append(vel)
+    x = np.concatenate(feats, axis=1)
+    x[~np.isfinite(x)] = 0.0
+    x[~mask] = 0.0
+    return x.astype(np.float32), mask

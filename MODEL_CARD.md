@@ -17,3 +17,7 @@ and `report.pdf`).
 
 ## Intended use
 
+- Demonstrations and research on pose-based isolated sign recognition.
+- Educational use: practising the signs of a fixed vocabulary with immediate feedback.
+- Runs locally in a web browser; video is never sent to a server.
+

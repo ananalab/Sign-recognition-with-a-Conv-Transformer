@@ -18,6 +18,19 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
+from signrec.checkpoint import load_checkpoint
+from signrec.dataset import SignDataset
+from signrec.metrics import (
+    confused_pairs,
+    confusion,
+    per_class_accuracy,
+    per_group_accuracy,
+    summary,
+)
+from signrec.preprocess import PreprocessConfig, hand_presence, preprocess
+from signrec.splits import load_split, split_indices
+from signrec.store import PackedDataset
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -144,3 +157,17 @@ def evaluate(ckpt: str, data: str, split: str, subset: str, n_gifs: int = 0) -> 
     return result
 
 
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ckpt", required=True)
+    ap.add_argument("--data", required=True)
+    ap.add_argument("--split", required=True)
+    ap.add_argument("--subset", default="val", choices=["train", "val", "test"])
+    ap.add_argument("--gifs", type=int, default=0)
+    a = ap.parse_args()
+    r = evaluate(a.ckpt, a.data, a.split, a.subset, a.gifs)
+    print({k: r[k] for k in ("run", "subset", "n", "top1", "top5", "macro_f1")})
+
+
+if __name__ == "__main__":
+    main()
