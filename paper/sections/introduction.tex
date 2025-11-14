@@ -1,0 +1,21 @@
+\section{Introduction}
+\label{sec:intro}
+
+Sign languages are natural languages with their own lexicon and grammar, used by millions of Deaf
+and hard-of-hearing people. Automatic sign language processing covers tasks of increasing
+difficulty: \emph{isolated} sign recognition (one sign per clip, closed vocabulary), continuous
+recognition, and translation to and from spoken languages
+\citep{bragg2019interdisciplinary,koller2020survey,yin2021including}. This report addresses
+isolated recognition only. The distinction is not merely terminological: a classifier over a few
+hundred glosses ignores the grammar of the language, its use of space and its non-manual markers,
+and therefore cannot translate \citep{yin2021including}.
+
+\emph{Pose-based} approaches first extract body, hand and face landmarks with an off-the-shelf
+estimator such as MediaPipe Holistic
+\citep{lugaresi2019mediapipe,bazarevsky2020blazepose,zhang2020mediapipehands,kartynnik2019facemesh},
+then classify the resulting keypoint sequence. Compared with models operating on RGB video, they
+are compact, largely insensitive to background and appearance, and allow inference without
+transmitting video, which protects the privacy of users. The Google Isolated Sign Language
+Recognition (ISLR) competition \citep{kaggle_islr} established this setting with
+\numAslSamples{} landmark sequences of \numAslClasses{} American Sign Language (ASL) signs.
+

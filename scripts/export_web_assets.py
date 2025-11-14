@@ -115,5 +115,82 @@ MODEL_META = {
 }
 
 
+def easy_signs(model_id: str, k: int = 12, min_support: int = 20) -> list[dict]:
+    """The k glosses best recognised on the test set by the deployed run (per-class top-1)."""
+    out = ROOT / "app/web/models" / model_id
+    run = json.loads((out / "export_report.json").read_text())["run"]
+    npz = ROOT / "reports/eval" / f"{run}_test.npz"
+    if not npz.exists():
+        return []
+    labels = json.loads((out / "labels.json").read_text())
+    z = np.load(npz)
+    y, pred = z["y"], z["probs"].argmax(1)
+    scores = [
+        (float((pred[y == c] == c).mean()), labels[c])
+        for c in range(len(labels))
+        if (y == c).sum() >= min_support
+    ]
+    scores.sort(key=lambda t: -t[0])
+    return [{"label": lab, "acc": round(acc, 3)} for acc, lab in scores[:k]]
+
+
+def package_model(
+    model_id: str, ckpt: Path, data: str | None, split: str | None, precision: str = "fp32"
+) -> dict:
+    """Export a checkpoint for the browser, shipping one precision only.
+
+    FP32 is the default: dynamic INT8 is 3.3x smaller but about 2x slower on CPU / WebAssembly
+    for the Conv-Transformer (see reports/latency.json).
+    """
+    out = ROOT / "app/web/models" / model_id
+    cmd = [sys.executable, "-m", "signrec.export", "--ckpt", str(ckpt), "--out", str(out)]
+    if data and split:
+        cmd += ["--data", data, "--split", split]
+    subprocess.run(cmd, cwd=ROOT, check=True)
+    other = "int8" if precision == "fp32" else "fp32"
+    (out / f"model_{other}.onnx").unlink()
+    labels = json.loads((out / "labels.json").read_text())
+    return {
+        "id": model_id,
+        "file": f"model_{precision}.onnx",
+        "n_classes": len(labels),
+        **MODEL_META[model_id],
+    }
+
+
+def export_examples(n: int, seed: int = 0) -> None:
+    """Random LSFB-ISOL test-set clips (CC BY 4.0) replayable in the demo, one per gloss."""
+    ds = PackedDataset(ROOT / "data/processed/lsfb_isol")
+    rows = split_indices(ds.index, load_split(ROOT / "splits/lsfb_isol_signer.json"))["test"]
+    rng = np.random.default_rng(seed)
+    picked, seen = [], set()
+    for r in rng.permutation(rows):
+        label = ds.index.label.iloc[r]
+        if label in seen or ds.index.n_frames.iloc[r] < 12:
+            continue
+        seen.add(label)
+        seq = ds.sequence(int(r))
+        picked.append(
+            {
+                "label": label,
+                "signer": str(ds.index.signer_id.iloc[r]),
+                "fps": float(ds.index.fps.iloc[r]),
+                "T": int(seq.shape[0]),
+                "data": [None if np.isnan(v) else round(float(v), 4) for v in seq.ravel()],
+            }
+        )
+        if len(picked) == n:
+            break
+    out = ROOT / "app/web/examples/lsfb.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "source": "LSFB-ISOL v2 test signers (CC BY 4.0)",
+        "y_scale": ds.y_scale,
+        "clips": picked,
+    }
+    out.write_text(json.dumps(payload))
+    print(f"wrote {len(picked)} examples to {out.relative_to(ROOT)}")
+
+
 if __name__ == "__main__":
     main()

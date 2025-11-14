@@ -100,6 +100,104 @@ def fig_dataset_overview(dss: dict[str, PackedDataset]) -> dict:
     return stats
 
 
+def fig_missing(dss: dict[str, PackedDataset]) -> pd.DataFrame:
+    rates = pd.concat({DATASETS[n]: part_missing_rates(ds) for n, ds in dss.items()}).droplevel(1)
+    parts = ["left_hand", "right_hand", "any_hand", "pose", "lips"]
+    nice = ["left\nhand", "right\nhand", "both\nhands", "upper\nbody", "lips"]
+    fig, ax = plt.subplots(figsize=(viz.COL_W, 1.9))
+    w = 0.38
+    x = np.arange(len(parts))
+    for k, (name, row) in enumerate(rates.iterrows()):
+        vals = row[parts].to_numpy() * 100
+        bars = ax.bar(x + (k - 0.5) * w, vals, w * 0.92, color=viz.SERIES[k], label=name)
+        ax.bar_label(bars, fmt="%.0f", fontsize=6, padding=1.5, color=viz.INK_2)
+    ax.set_xticks(x, nice)
+    ax.set_ylabel("frames with part missing (%)")
+    ax.legend(loc="upper right")
+    ax.grid(axis="x", visible=False)
+    fig.tight_layout()
+    viz.save(fig, FIG / "missing_parts")
+    return rates
+
+
+def fig_normalisation(dss: dict[str, PackedDataset], n: int = 400, seed: int = 0) -> None:
+    """Per-clip mean positions of the nose, shoulders and dominant wrist in three coordinate frames.
+
+    (a) image coordinates; (b) body-centred, without aspect correction; (c) body-centred with the
+    per-dataset aspect correction. Each point is one clip.
+    """
+    rng = np.random.default_rng(seed)
+    cfg = PreprocessConfig()
+    joints = [
+        POSE_POS["nose"],
+        POSE_POS["l_shoulder"],
+        POSE_POS["r_shoulder"],
+        SLICES["right_hand"].start,
+    ]
+    fig, axes = plt.subplots(1, 3, figsize=(viz.FULL_W, 2.05))
+    for k, (name, ds) in enumerate(dss.items()):
+        pts = {0: [], 1: [], 2: []}
+        for r in rng.permutation(len(ds))[:n]:
+            seq = canonicalize_hand(trim_handless(ds.sequence(int(r))))
+            iso = seq.copy()
+            iso[..., 1] *= ds.y_scale
+            frames = (
+                seq,
+                normalize(seq, cfg.min_shoulder_width),
+                normalize(iso, cfg.min_shoulder_width),
+            )
+            for j, arr in enumerate(frames):
+                pts[j] += [np.nanmean(arr[:, idx, :2], axis=0) for idx in joints]
+        for j, ax in enumerate(axes):
+            p = np.array(pts[j])
+            ax.scatter(
+                p[:, 0], p[:, 1], s=1.2, color=viz.SERIES[k], alpha=0.35, lw=0, label=DATASETS[name]
+            )
+    axes[0].set(
+        title="(a) image coordinates",
+        xlabel="x / width",
+        ylabel="y / height",
+        xlim=(-0.1, 1.1),
+        ylim=(1.6, -0.1),
+    )
+    axes[1].set(
+        title="(b) body frame, no aspect correction",
+        xlabel="shoulder widths",
+        xlim=(-2.2, 2.2),
+        ylim=(3.0, -1.6),
+    )
+    axes[2].set(
+        title="(c) body frame, aspect-corrected",
+        xlabel="shoulder widths",
+        xlim=(-2.2, 2.2),
+        ylim=(3.0, -1.6),
+    )
+    for ax in axes:
+        ax.set_aspect("equal")
+    for ax in axes[1:]:
+        ax.annotate("nose", xy=(0, -0.5), xytext=(1.0, -1.25), fontsize=6.5, color=viz.INK_2,
+                    arrowprops={"arrowstyle": "-", "color": viz.INK_3, "lw": 0.6})  # fmt: skip
+    leg = axes[0].legend(loc="lower left", markerscale=5)
+    for h in leg.legend_handles:
+        h.set_alpha(1)
+    fig.tight_layout(w_pad=0.8)
+    viz.save(fig, FIG / "normalisation")
+
+
+def typical_clip(ds: PackedDataset, label: str | None) -> int:
+    """Row of a clip with a visible hand in most frames and a typical length (~30 frames)."""
+    idx = ds.index
+    cand = idx.index[idx.label == label] if label in set(idx.label) else idx.index
+    best, best_score = int(cand[0]), -1.0
+    for r in cand[:300]:
+        s = ds.sequence(int(r))
+        score = (~np.isnan(s[:, 21:42, 0]).all(1) | ~np.isnan(s[:, :21, 0]).all(1)).mean()
+        score -= abs(len(s) - 30) / 300
+        if score > best_score:
+            best, best_score = int(r), score
+    return best
+
+
 def sign_gifs(dss: dict[str, PackedDataset]) -> None:
     """Animated skeleton of a typical clip for a few signs, in reports/figures/."""
     for name, ds in dss.items():
@@ -226,6 +324,28 @@ def table_datasets() -> None:
         "Dataset & Classes & Clips & Signers & tr/val/test & per class & Duration & fps & hand \\\\\n"
         "\\midrule\n" + body + "\n\\bottomrule\n\\end{tabular}\n"
     )
+
+
+def significance(nums: Numbers) -> None:
+    """Macros from reports/stats.json (paired tests between models)."""
+    st = stats()
+    c = st.get("asl_transformer_vs_gru_test")
+    if c:
+        b, bc = c["bootstrap_signer"], c["bootstrap_clip"]
+        nums["numTrGruDiff"] = f"{100 * b['diff']:.1f}"
+        nums["numTrGruCiLo"] = f"{100 * b['ci_low']:.1f}"
+        nums["numTrGruCiHi"] = f"{100 * b['ci_high']:.1f}"
+        nums["numTrGruClipCiLo"] = f"{100 * bc['ci_low']:.1f}"
+        nums["numTrGruClipCiHi"] = f"{100 * bc['ci_high']:.1f}"
+        nums["numTrGruMcnemar"] = fmt_p(c["mcnemar_ensemble"]["p"])
+    for key, name in (("ft", "Ft"), ("ftfreeze", "Freeze")):
+        c = st.get(f"lsfb_{key}_vs_scratch_test")
+        if c:
+            b = c["bootstrap_signer"]
+            nums[f"numLsfb{name}Diff"] = f"{100 * b['diff']:+.1f}"
+            nums[f"numLsfb{name}CiLo"] = f"{100 * b['ci_low']:+.1f}"
+            nums[f"numLsfb{name}CiHi"] = f"{100 * b['ci_high']:+.1f}"
+            nums[f"numLsfb{name}P"] = fmt_p(b["p"])
 
 
 def fig_training_curves() -> None:
