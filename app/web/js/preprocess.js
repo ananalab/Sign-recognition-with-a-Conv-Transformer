@@ -114,3 +114,37 @@ export function normalize(seq, minShoulderWidth) {
   return { T, data: out };
 }
 
+function linspace(stop, num) {
+  // numpy.linspace(0, stop, num): i * step, with the last element set exactly to stop
+  const step = stop / (num - 1);
+  const out = new Float64Array(num);
+  for (let i = 0; i < num; i++) out[i] = i * step;
+  if (num > 1) out[num - 1] = stop;
+  return out;
+}
+
+export function resample(seq, T) {
+  const n = seq.T;
+  const data = seq.data;
+  if (n === T) return { T, data: data.slice() };
+  const out = new Float64Array(T * L * 3);
+  if (n === 1) {
+    for (let t = 0; t < T; t++) out.set(data.subarray(0, L * 3), t * L * 3);
+    return { T, data: out };
+  }
+  const pos = linspace(n - 1, T);
+  for (let t = 0; t < T; t++) {
+    const lo = Math.floor(pos[t]);
+    const hi = Math.min(lo + 1, n - 1);
+    const w = pos[t] - lo;
+    for (let k = 0; k < L * 3; k++) {
+      const a = data[lo * L * 3 + k];
+      const b = data[hi * L * 3 + k];
+      let v = a * (1 - w) + b * w;
+      if (Number.isNaN(v)) v = w < 0.5 ? a : b;
+      out[t * L * 3 + k] = v;
+    }
+  }
+  return { T, data: out };
+}
+

@@ -43,3 +43,18 @@ Decisions, rationale and measured results, in chronological order.
 - The val->test gap is larger for LightGBM (−11 pts) than for the linear model (−6 pts):
   trees overfit signer-specific statistics.
 
+## Two methodological fixes found during development
+
+- **Augmentation placement.** Image-space translation and isotropic scaling are exactly cancelled
+  by the shoulder normalisation (our invariance tests prove it), and a uniform speed change is
+  undone by resampling to 64 frames. Spatial augmentation now runs after normalisation (body frame)
+  and the time warp is non-uniform.
+- **Aspect ratio.** MediaPipe divides x by the width and y by the height. LSFB videos are 720×576
+  PAL with a 16:9 display aspect, so vertical distances are inflated by 1.78. Check: median
+  nose-above-shoulders / shoulder span = 0.399 (ASL) vs 0.765 (LSFB raw) -> 0.430 after × 576/1024;
+  a 4:3 assumption would give 0.574. Per-source `y_scale`: ASL 1.0, LSFB 0.5625, webcam H/W.
+- Profiling: data pipeline 3.2 -> 1.8 ms/sample (training) after vectorising the resampling;
+  epoch time on a Kaggle T4 was CPU-bound (≈65 s for both models).
+
+## Baselines (LSFB-ISOL, 100 glosses, official test signers)
+

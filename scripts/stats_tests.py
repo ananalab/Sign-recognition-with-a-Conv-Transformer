@@ -8,3 +8,9 @@ for the three seeds of each model:
 - an exact McNemar test on the predictions of the seed ensembles;
 - the mean and standard deviation over seeds of the accuracy difference.
 
+Comparisons: Conv-Transformer vs. BiGRU on the ASL test signers, and the ASL-initialised LSFB
+models vs. the model trained from scratch on the LSFB test signers.
+
+    uv run python scripts/stats_tests.py
+"""
+

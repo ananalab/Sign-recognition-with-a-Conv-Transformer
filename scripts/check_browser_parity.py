@@ -40,5 +40,22 @@ def python_probs() -> tuple[list[np.ndarray], list[str], dict]:
     return out, ck["labels"], ex
 
 
+def main() -> None:
+    py, labels, ex = python_probs()
+    with serve(WEB) as port:
+        js = asyncio.run(browser_probs(port, len(py)))
+    same = sum(int(np.argmax(a) == np.argmax(b["probs"])) for a, b in zip(py, js, strict=True))
+    diff = max(float(np.abs(a - np.array(b["probs"])).max()) for a, b in zip(py, js, strict=True))
+    acc = float(np.mean([labels[int(np.argmax(b["probs"]))] == b["label"] for b in js]))
+    out = {
+        "n_clips": len(js),
+        "same_top1": same,
+        "max_abs_prob_diff": diff,
+        "top1_on_examples": acc,
+    }
+    (ROOT / "reports" / "browser_parity.json").write_text(json.dumps(out, indent=1))
+    print(out)
+
+
 if __name__ == "__main__":
     main()
