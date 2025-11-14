@@ -106,3 +106,20 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
 .conf { font: 500 15px var(--mono); color: var(--ink-2); }
 .prediction.uncertain .gloss { color: var(--ink-2); }
 
+.chips { display: flex; flex-wrap: wrap; gap: 4px; min-height: 24px; }
+.chips.scroll { max-height: 200px; overflow-y: auto; }
+.chips a, .chips span:not(.muted) {
+  font-size: 12px; padding: 2px 8px; border-radius: 6px; background: var(--soft); color: var(--ink); text-decoration: none;
+}
+.chips a:hover { background: var(--line); }
+.chips small { font: 10px var(--mono); color: var(--ink-2); margin-left: 4px; }
+.chips .hit { background: var(--accent); color: #fff; }
+.chips .hit small { color: rgb(255 255 255 / 0.8); }
+.chips .low { color: var(--ink-2); }
+
+.vocab input[type="search"] {
+  width: 100%; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); color: var(--ink); font: 13px var(--font); margin-bottom: 8px;
+}
+
+.footer { max-width: 1200px; margin: 0 auto; padding: 8px 24px 24px; font-size: 12px; color: var(--ink-2); }

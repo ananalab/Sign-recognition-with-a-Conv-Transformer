@@ -14,3 +14,8 @@ models vs. the model trained from scratch on the LSFB test signers.
     uv run python scripts/stats_tests.py
 """
 
+from __future__ import annotations
+
+import json
+from pathlib import Path
+

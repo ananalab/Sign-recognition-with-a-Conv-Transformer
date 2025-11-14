@@ -81,3 +81,19 @@ Decisions, rationale and measured results, in chronological order.
 
 ## Main ASL models (Kaggle T4, 50 epochs, 3 seeds, signer-independent)
 
+| Model | Params | Val top-1 | Test top-1 | Test top-5 | Test macro-F1 | Std across test signers |
+|---|---|---|---|---|---|---|
+| BiGRU | 1.43 M | 65.8 ± 0.5 | 63.0 ± 0.5 | 84.0 ± 0.3 | 62.3 ± 0.6 | 3.9 |
+| Conv-Transformer | 2.16 M | 68.2 ± 0.1 | 64.8 ± 0.4 | 84.0 ± 0.3 | 64.1 ± 0.4 | 3.3 |
+
+- +22.7 pts over the best baseline (logistic regression, 42.1 % test).
+- The Conv-Transformer beats the GRU on every one of the 4 test signers.
+- Best checkpoints at epochs 39–46 of 50 and the validation curve is still rising -> a 150-epoch
+  run (`experiments/asl_long.yaml`) measures the headroom; comparisons stay at 50 epochs.
+- Accuracy falls to ≈52 % when no hand is detected in more than half of the frames (30 % of
+  test clips): landmark detection quality is the main limiting factor.
+- Most confused pairs are near-synonyms often signed alike: wake/awake, pen/pencil, duck/goose,
+  look/see, a vocabulary property, not only a model error.
+- Evaluation crashed on Kaggle (evaluate.py imported onnxruntime through export.py); fixed by
+  moving `load_checkpoint` to `signrec/checkpoint.py`; evaluations were run locally.
+
