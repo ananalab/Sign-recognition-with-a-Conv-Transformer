@@ -198,12 +198,39 @@ def typical_clip(ds: PackedDataset, label: str | None) -> int:
     return best
 
 
+def fig_strips(dss: dict[str, PackedDataset]) -> None:
+    rows = []
+    for name, ds in dss.items():
+        idx = ds.index
+        best = typical_clip(ds, {"kaggle_asl": "hello", "lsfb_isol": "AUSSI"}.get(name))
+        seq = ds.sequence(best)
+        rows.append((f"{DATASETS[name].split(' ')[0]} “{idx.label[best]}”", seq))
+    viz.save(viz.plot_strips(rows), FIG / "examples")
+
+
 def sign_gifs(dss: dict[str, PackedDataset]) -> None:
     """Animated skeleton of a typical clip for a few signs, in reports/figures/."""
     for name, ds in dss.items():
         for sign in GIF_SIGNS.get(name, []):
             out = ROOT / "reports" / "figures" / f"{name}_{sign}.gif"
             viz.save_gif(ds.sequence(typical_clip(ds, sign)), out, title=sign)
+
+
+def nose_height_ratio(ds: PackedDataset, y_scale: float, n: int = 2000, seed: int = 0) -> float:
+    """Median height of the nose above the shoulder line divided by the shoulder span.
+
+    An anatomical invariant: it should not depend on the camera if coordinates are isotropic.
+    """
+    rng = np.random.default_rng(seed)
+    vals = []
+    for r in rng.permutation(len(ds))[:n]:
+        s = ds.sequence(int(r))
+        nose, ls, rs = (s[:, POSE_POS[k], :2] for k in ("nose", "l_shoulder", "r_shoulder"))
+        mid = (ls + rs) / 2
+        span = np.abs(ls[:, 0] - rs[:, 0])
+        v = (mid[:, 1] - nose[:, 1]) * y_scale / span
+        vals.append(np.nanmedian(v) if np.isfinite(v).any() else np.nan)
+    return float(np.nanmedian(vals))
 
 
 def data_analyses(dss: dict[str, PackedDataset]) -> dict:

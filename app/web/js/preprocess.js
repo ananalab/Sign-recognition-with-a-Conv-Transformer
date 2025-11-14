@@ -148,3 +148,30 @@ export function resample(seq, T) {
   return { T, data: out };
 }
 
+export function fixLength(seq, T, mode) {
+  if (mode === "resample" || (mode === "pad" && seq.T > T)) {
+    return { seq: resample(seq, T), mask: new Array(T).fill(true) };
+  }
+  if (mode !== "pad") throw new Error(`unknown length_mode ${mode}`);
+  const out = new Float64Array(T * L * 3).fill(NaN);
+  out.set(seq.data.subarray(0, seq.T * L * 3));
+  const mask = new Array(T).fill(false);
+  for (let t = 0; t < seq.T; t++) mask[t] = true;
+  return { seq: { T, data: out }, mask };
+}
+
+function handLocal(seq) {
+  const { T, data } = seq;
+  const out = new Float64Array(T * 21 * 3);
+  for (let t = 0; t < T; t++) {
+    const w = (t * L + RH0) * 3;
+    const m = (t * L + RH0 + 9) * 3;
+    const size = Math.max(Math.hypot(data[m] - data[w], data[m + 1] - data[w + 1]), EPS);
+    for (let j = 0; j < 21; j++) {
+      const s = (t * L + RH0 + j) * 3;
+      for (let c = 0; c < 3; c++) out[(t * 21 + j) * 3 + c] = (data[s + c] - data[w + c]) / size;
+    }
+  }
+  return out;
+}
+

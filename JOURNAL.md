@@ -58,3 +58,26 @@ Decisions, rationale and measured results, in chronological order.
 
 ## Baselines (LSFB-ISOL, 100 glosses, official test signers)
 
+| Model | Val top-1 | Test top-1 | Test top-5 | Test macro-F1 |
+|---|---|---|---|---|
+| Chance | 1.0 % | 1.0 % | 5.0 % |, |
+| Stat. features + logistic regression | 57.0 % | 49.0 % | 75.3 % | 40.9 % |
+| Stat. features + LightGBM | 54.8 % | 47.1 % | 72.6 % | 37.3 % |
+
+- Top-1 is flattered by the long tail (the 10 most frequent glosses cover 32.3 % of the test clips,
+  AUSSI alone 6.2 %); macro-F1 is ~8 pts lower than top-1, unlike on the balanced ASL data.
+
+## Latency, FP32 vs dynamic INT8 (idle M1, one thread, untrained weights)
+
+| Model | Native FP32 | Native INT8 | Browser (wasm) FP32 | Browser INT8 | Size FP32 / INT8 |
+|---|---|---|---|---|---|
+| Conv-Transformer | 7.7 ms | 16.3 ms | 35.5 ms | 32.7 ms | 8.2 / 2.2 MB |
+| BiGRU | 5.7 ms | 5.4 ms | 7.7 ms | 7.8 ms | 5.5 / 4.6 MB |
+
+- Dynamic INT8 is 2.1× *slower* natively on the M1 for the Transformer (quantise/dequantise
+  overhead around many small matmuls), but similar in the browser and 3.7× smaller to download.
+  Decision: ship INT8 in the browser for download size; final numbers via scripts/bench_latency.py.
+- The GRU op itself is not quantised by onnxruntime dynamic quantisation (size barely changes).
+
+## Main ASL models (Kaggle T4, 50 epochs, 3 seeds, signer-independent)
+

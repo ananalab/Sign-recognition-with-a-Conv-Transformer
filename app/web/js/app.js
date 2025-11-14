@@ -200,6 +200,38 @@ function highlightVocab(label) {
   for (const el of [...ui.vocabGrid.children, ...ui.easyGrid.children]) el.classList.toggle("hit", el.dataset.l === label);
 }
 
+async function startCamera() {
+  if (!app.holistic) return;
+  stopFile();
+  try {
+    app.stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" }, audio: false });
+  } catch {
+    setStatus("Camera permission denied", "error");
+    return;
+  }
+  app.fit = null;
+  app.replayId++;
+  ui.video.srcObject = app.stream;
+  await ui.video.play();
+  ui.empty.hidden = true;
+  ui.stage.classList.toggle("mirrored", ui.optMirror.checked);
+  $("btn-camera").textContent = "Stop camera";
+  app.running = true;
+  app.segmenter.reset();
+  if (app.mode === "file") setMode("auto");
+  requestAnimationFrame(cameraLoop);
+}
+
+function stopCamera() {
+  app.running = false;
+  app.stream?.getTracks().forEach((t) => t.stop());
+  app.stream = null;
+  ui.video.srcObject = null;
+  $("btn-camera").textContent = "Start camera";
+  ui.empty.hidden = false;
+  drawOverlay(null);
+}
+
 async function analyseFile(file) {
   if (!file || !app.holistic) return;
   stopCamera();
@@ -225,6 +257,36 @@ async function analyseFile(file) {
   };
   ui.video.requestVideoFrameCallback(step);
   await ui.video.play();
+}
+
+async function playExample() {
+  if (!app.examples?.length || !app.model) return;
+  stopCamera();
+  stopFile();
+  // cycle through the examples in a random order, without repeating one before all were shown
+  if (!app.exampleOrder?.length) {
+    app.exampleOrder = app.examples.map((_, i) => i).sort(() => Math.random() - 0.5);
+  }
+  const clip = app.examples[app.exampleOrder.pop()];
+  const id = ++app.replayId;
+  resetPrediction();
+  ui.hint.textContent = "Replaying…";
+  ui.empty.hidden = true;
+  ui.stage.classList.remove("mirrored");
+  app.fit = clipBounds(clip);
+  setBadge(`Replaying a clip of signer ${clip.signer}`, "signing");
+  const frames = [];
+  for (let t = 0; t < clip.T; t++) {
+    if (id !== app.replayId) return;
+    const f = Float64Array.from(clip.data.slice(t * L * 3, (t + 1) * L * 3), (v) => (v === null ? NaN : v));
+    frames.push(f);
+    onFrame(f, performance.now());
+    await new Promise((r) => setTimeout(r, 1000 / clip.fps));
+  }
+  setBadge("Recognised", "done");
+  await classify(frames, "example");
+  const ok = ui.gloss.textContent === clip.label;
+  ui.hint.textContent = `True sign: ${clip.label} ${ok ? "✓" : "✗"} · LSFB-ISOL test signer ${clip.signer}`;
 }
 
 function holdStart() {
@@ -272,3 +334,4 @@ async function main() {
   }
 }
 
+main();
