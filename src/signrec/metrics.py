@@ -97,3 +97,11 @@ def paired_bootstrap(
     return {"diff": float(d.mean()), "ci_low": float(lo), "ci_high": float(hi), "p": min(p, 1.0)}
 
 
+def mcnemar(correct_a: np.ndarray, correct_b: np.ndarray) -> dict[str, float]:
+    """Exact McNemar test on paired binary outcomes (binomial test on discordant pairs)."""
+    from scipy.stats import binomtest
+
+    a, b = np.asarray(correct_a, bool), np.asarray(correct_b, bool)
+    only_a, only_b = int((a & ~b).sum()), int((~a & b).sum())
+    p = binomtest(only_a, only_a + only_b, 0.5).pvalue if only_a + only_b else 1.0
+    return {"only_a": only_a, "only_b": only_b, "p": float(p)}

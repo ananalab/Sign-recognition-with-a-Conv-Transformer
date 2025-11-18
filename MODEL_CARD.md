@@ -21,3 +21,22 @@ and `report.pdf`).
 - Educational use: practising the signs of a fixed vocabulary with immediate feedback.
 - Runs locally in a web browser; video is never sent to a server.
 
+## Out-of-scope uses
+
+- **Not a translator.** Sign languages have their own grammar, use of space and facial
+  expressions; this model recognises single signs from a fixed list and ignores all of that.
+- Not suitable for any situation where an error has consequences (medical, legal, administrative,
+  emergency, education assessment). Professional interpreters are irreplaceable.
+- The LSFB model is **not** an LSF (French Sign Language) model: LSFB is a distinct language.
+- Not intended for identifying or tracking people.
+
+## Training data
+
+- Google *Isolated Sign Language Recognition* (Kaggle, 2023): 94,477 clips, 21 participants,
+  smartphone recordings, landmarks from the legacy MediaPipe Holistic solution. Competition rules
+  apply; the data are not redistributed.
+- LSFB-ISOL v2 (Fink et al., IJCNN 2021; LSFB corpus, Meurant 2015): isolated signs cut from
+  spontaneous conversations, CC BY 4.0. Raw (unsmoothed) landmarks.
+
+## Evaluation
+

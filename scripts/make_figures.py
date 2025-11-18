@@ -302,6 +302,10 @@ def eval_report(run: str, subset: str) -> dict | None:
     return _load(ROOT / "reports" / "eval" / f"{run}_{subset}.json")
 
 
+def seeds(prefix: str, n: int = 3) -> list[str]:
+    return [f"{prefix}-s{i}" for i in range(n) if run_metrics(f"{prefix}-s{i}")]
+
+
 def numbers_from_data(nums: Numbers) -> None:
     stats = _load(ROOT / "reports" / "dataset_stats.json") or {}
     if "kaggle_asl" in stats:

@@ -9,6 +9,26 @@
 
 import { N_LANDMARKS, POSE_POS, SLICES } from "./landmarks.js";
 
+const DEFAULT_SEGMENTER = {
+  startFrames: 3,
+  preRoll: 4,
+  endNoHandFrames: 6,
+  stillFrames: 14,
+  stillThreshold: 0.012, // mean hand displacement per frame, in shoulder widths
+  minFrames: 8,
+  maxFrames: 120,
+};
+
+const L = N_LANDMARKS;
+
+export function handsVisible(frame) {
+  for (const part of ["left_hand", "right_hand"]) {
+    const [a, b] = SLICES[part];
+    for (let l = a; l < b; l++) if (!Number.isNaN(frame[l * 3])) return true;
+  }
+  return false;
+}
+
 function shoulderWidth(frame) {
   const a = POSE_POS.l_shoulder * 3;
   const b = POSE_POS.r_shoulder * 3;
