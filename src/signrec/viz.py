@@ -11,6 +11,18 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.animation import FuncAnimation, PillowWriter  # noqa: E402
 
+from signrec.landmarks import SLICES, skeleton_edges  # noqa: E402
+
+# Categorical palette, readable with the common colour-vision deficiencies.
+SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
+INK, INK_2, INK_3, GRID, SURFACE = "#0b0b0b", "#52514e", "#8a8984", "#e4e3df", "#ffffff"
+
+PART_COLORS = {"left_hand": SERIES[1], "right_hand": SERIES[0], "pose": INK_3, "lips": SERIES[4]}
+
+# Half and full text width of the single-column A4 article (inches).
+COL_W, FULL_W = 3.05, 6.3
+
+
 def draw_frame(ax: plt.Axes, frame: np.ndarray, lw: float = 1.0, point_size: float = 2.0) -> list:
     """Draw one ``[L, 3]`` frame (image coordinates, y down) on ``ax``; returns the artists.
 

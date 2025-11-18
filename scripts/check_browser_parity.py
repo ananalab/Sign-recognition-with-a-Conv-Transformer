@@ -40,6 +40,18 @@ def python_probs() -> tuple[list[np.ndarray], list[str], dict]:
     return out, ck["labels"], ex
 
 
+async def browser_probs(port: int, n: int) -> list[dict]:
+    async with async_playwright() as p:
+        b = await p.chromium.launch(args=["--enable-unsafe-swiftshader", "--use-angle=swiftshader"])
+        page = await b.new_page()
+        await page.goto(f"http://127.0.0.1:{port}/?model=lsfb")
+        ready = "document.getElementById('status').dataset.state === 'ready'"
+        await page.wait_for_function(ready, timeout=180_000)
+        res = [await page.evaluate(f"window.signrecExampleProbs({i})") for i in range(n)]
+        await b.close()
+    return res
+
+
 def main() -> None:
     py, labels, ex = python_probs()
     with serve(WEB) as port:

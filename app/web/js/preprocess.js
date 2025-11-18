@@ -175,3 +175,44 @@ function handLocal(seq) {
   return out;
 }
 
+/**
+ * Raw unified sequence to {features: Float32Array(T*F), mask: Float32Array(T)}.
+ * yScale = frame height / width makes MediaPipe's normalised coordinates isotropic.
+ */
+export function preprocess(input, cfg, yScale = 1.0) {
+  if (input.T === 0) throw new Error("empty sequence");
+  let seq = { T: input.T, data: Float64Array.from(input.data) };
+  if (yScale !== 1.0) for (let i = 1; i < seq.data.length; i += 3) seq.data[i] *= Math.fround(yScale);
+  if (cfg.trim) seq = trimHandless(seq);
+  if (cfg.canonical_hand) seq = canonicalizeHand(seq);
+  seq = normalize(seq, cfg.min_shoulder_width);
+  const fixed = fixLength(seq, cfg.T, cfg.length_mode);
+  seq = fixed.seq;
+  const mask = fixed.mask;
+
+  const d = cfg.use_z ? 3 : 2;
+  const ids = landmarkIds(cfg);
+  const hl = cfg.hand_local ? handLocal(seq) : null;
+  const P = (ids.length + (hl ? 21 : 0)) * d;
+  const F = P * (cfg.velocity ? 2 : 1);
+  const T = cfg.T;
+  const pos = new Float64Array(T * P);
+  for (let t = 0; t < T; t++) {
+    let k = 0;
+    for (const l of ids) for (let c = 0; c < d; c++) pos[t * P + k++] = seq.data[(t * L + l) * 3 + c];
+    if (hl) for (let j = 0; j < 21; j++) for (let c = 0; c < d; c++) pos[t * P + k++] = hl[(t * 21 + j) * 3 + c];
+  }
+  const feats = new Float32Array(T * F);
+  const clean = (v) => (Number.isFinite(v) ? v : 0);
+  for (let t = 0; t < T; t++) {
+    for (let k = 0; k < P; k++) {
+      feats[t * F + k] = mask[t] ? clean(pos[t * P + k]) : 0;
+      if (cfg.velocity) {
+        let v = 0;
+        if (t > 0 && mask[t] && mask[t - 1]) v = pos[t * P + k] - pos[(t - 1) * P + k];
+        feats[t * F + P + k] = mask[t] ? clean(v) : 0;
+      }
+    }
+  }
+  return { features: feats, mask: Float32Array.from(mask, (m) => (m ? 1 : 0)) };
+}

@@ -40,3 +40,24 @@ and `report.pdf`).
 
 ## Evaluation
 
+- Signer-independent: test signers never appear in training or validation; the test sets were used
+  once, for the final models.
+- Metrics: top-1 / top-5 accuracy, macro-F1, accuracy per signer. Results in `report.pdf` and
+  `reports/eval/`.
+
+## Known limitations and biases
+
+- **Few signers.** 21 ASL participants; per-signer accuracy varies markedly, so performance on a
+  new user can be much lower than the average.
+- **Recording conditions.** Trained on smartphone (ASL) and studio (LSFB) framings. Webcam
+  distance, lighting, occlusions and fast motion degrade landmark detection, and missing hands
+  strongly reduce accuracy.
+- **Extractor shift.** ASL training landmarks come from an older MediaPipe pipeline than the one
+  used in the browser; normalisation and augmentation reduce but do not remove this shift.
+- **Non-manual features.** Only the lips are used from the face; signs distinguished by eyebrows,
+  gaze or head movement are not captured.
+- **Dictionary-form vs. conversational signs.** ASL signs were produced in isolation; LSFB signs
+  come from conversations and are co-articulated, short and variable.
+- **Vocabulary.** Any sign outside the vocabulary is mapped to its closest vocabulary sign; low
+  confidence is shown but there is no explicit rejection class.
+
