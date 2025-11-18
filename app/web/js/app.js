@@ -331,6 +331,11 @@ function stopCamera() {
   drawOverlay(null);
 }
 
+function stopFile() {
+  app.fileFrames = null;
+  if (ui.video.src) { ui.video.pause(); URL.revokeObjectURL(ui.video.src); ui.video.removeAttribute("src"); }
+}
+
 async function analyseFile(file) {
   if (!file || !app.holistic) return;
   stopCamera();
@@ -356,6 +361,21 @@ async function analyseFile(file) {
   };
   ui.video.requestVideoFrameCallback(step);
   await ui.video.play();
+}
+
+async function loadExamples(meta) {
+  app.examples = null;
+  app.exampleOrder = null;
+  if (meta.examples) {
+    try {
+      const ex = await (await fetch(meta.examples)).json();
+      app.examples = ex.clips;
+      app.exampleYScale = ex.y_scale ?? 1.0;
+    } catch {
+      app.examples = null;
+    }
+  }
+  for (const id of ["btn-example", "btn-example-big"]) $(id).hidden = !app.examples?.length;
 }
 
 function clipBounds(clip) {

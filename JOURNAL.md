@@ -97,3 +97,13 @@ Decisions, rationale and measured results, in chronological order.
 - Evaluation crashed on Kaggle (evaluate.py imported onnxruntime through export.py); fixed by
   moving `load_checkpoint` to `signrec/checkpoint.py`; evaluations were run locally.
 
+## INT8 quantisation broke the Conv-Transformer (found with trained weights)
+
+- Default dynamic INT8: validation top-1 **34.2 %** (2,000 clips: 40.7 %) vs 67.9 % in FP32.
+  Restricting quantisation to constant-weight matmuls or per-channel weights did not help.
+- Cause: rare outliers in the *hand-local* features (max 190, p99.9 = 6.2; 0.04 % of values > 10),
+  produced when a detected hand is tiny (division by the wrist->middle-MCP length). A per-tensor
+  dynamic scale on the first layer then wipes out the resolution of all other inputs.
+- Fix: keep the input projection in FP32 -> INT8 top-1 68.4 % vs 67.9 % FP32, 2.5 MB vs 8.3 MB.
+- Future work: clip the hand-size denominator in preprocessing (would require retraining).
+

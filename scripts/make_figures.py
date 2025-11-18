@@ -294,6 +294,10 @@ def _load(path: Path) -> dict | None:
     return json.loads(path.read_text()) if path.exists() else None
 
 
+def run_metrics(run: str) -> dict | None:
+    return _load(ROOT / "reports" / "runs" / run / "metrics.json")
+
+
 def eval_report(run: str, subset: str) -> dict | None:
     return _load(ROOT / "reports" / "eval" / f"{run}_{subset}.json")
 
