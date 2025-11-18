@@ -16,3 +16,10 @@ from pathlib import Path
 
 from playwright.async_api import async_playwright
 
+from local_server import serve
+
+ROOT = Path(__file__).resolve().parents[1]
+WEB = ROOT / "app" / "web"
+OUT = [ROOT / "paper" / "figures" / "demo.png", ROOT / "reports" / "figures" / "demo.png"]
+
+

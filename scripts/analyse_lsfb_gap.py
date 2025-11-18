@@ -14,3 +14,6 @@ test signers. The script compares the two sets on factors that can explain an ac
     uv run python scripts/analyse_lsfb_gap.py [--run lsfb-scratch-nall]
 """
 
+import numpy as np
+import pandas as pd
+

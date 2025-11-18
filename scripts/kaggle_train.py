@@ -31,6 +31,14 @@ from pathlib import Path
 
 import yaml
 
+ROOT = Path(__file__).resolve().parents[1]
+USER = "anaisazouaoui"
+SOURCES = {
+    "kaggle_asl": {"kernel": f"{USER}/asl-signs-unified-subset"},
+    "lsfb_isol": {"dataset": f"{USER}/lsfb-isol-unified"},
+}
+PACKAGED = ["src", "configs", "splits", "pyproject.toml"]
+
 RUNNER = r'''
 import base64, glob, io, json, os, shutil, subprocess, sys, tarfile
 
@@ -59,6 +67,33 @@ for mod in ("omegaconf", "tabulate"):
         __import__(mod)
     except ImportError:
         subprocess.run([sys.executable, "-m", "pip", "install", "-q", mod], check=True)
+
+env = {**os.environ, "PYTHONPATH": f"{WORK}/src"}
+py = [sys.executable, "-m"]
+os.chdir(WORK)
+subprocess.run(["nvidia-smi", "-L"])
+status = []
+for run in SPEC["runs"]:
+    name = run["run_name"]
+    cmd = py + ["signrec.train", "--config", "configs/train.yaml", "mlflow=false",
+                f"run_name={name}", *run.get("overrides", [])]
+    print("\n>>>", " ".join(cmd), flush=True)
+    ok = subprocess.run(cmd, env=env).returncode == 0
+    if ok:
+        cfg = __import__("yaml").safe_load(open(f"reports/runs/{name}/config.yaml"))
+        for subset in run.get("evaluate", []):
+            subprocess.run(py + ["signrec.evaluate", "--ckpt", f"models/{name}/best.pt",
+                                 "--data", cfg["data"]["root"], "--split", cfg["data"]["split"],
+                                 "--subset", subset], env=env)
+    status.append({"run": name, "ok": ok})
+    shutil.copytree("reports", f"{OUT}/reports", dirs_exist_ok=True)
+    if os.path.isdir(f"models/{name}"):
+        shutil.copytree(f"models/{name}", f"{OUT}/models/{name}", dirs_exist_ok=True)
+    json.dump(status, open(f"{OUT}/status.json", "w"), indent=1)
+shutil.rmtree(WORK, ignore_errors=True)
+print(json.dumps(status, indent=1))
+'''
+
 
 def pack_code() -> str:
     buf = io.BytesIO()
