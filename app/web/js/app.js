@@ -200,6 +200,105 @@ function highlightVocab(label) {
   for (const el of [...ui.vocabGrid.children, ...ui.easyGrid.children]) el.classList.toggle("hit", el.dataset.l === label);
 }
 
+function drawOverlay(frame) {
+  const c = ui.overlay;
+  const v = ui.video;
+  const W = (c.width = c.clientWidth * devicePixelRatio);
+  const H = (c.height = c.clientHeight * devicePixelRatio);
+  const ctx = c.getContext("2d");
+  ctx.clearRect(0, 0, W, H);
+  if (!frame || (!ui.optSkeleton.checked && !app.fit)) return;
+  let px;
+  if (app.fit) {
+    // replayed clip: fit its bounding box into the canvas
+    const f = app.fit;
+    const ys = app.exampleYScale ?? 1.0; // isotropic coordinates
+    const s = 0.9 * Math.min(W / f.w, H / (f.h * ys));
+    const ox = (W - f.w * s) / 2;
+    const oy = (H - f.h * ys * s) / 2;
+    px = (l) => [ox + (frame[l * 3] - f.x0) * s, oy + (frame[l * 3 + 1] - f.y0) * ys * s];
+  } else {
+    if (!v.videoWidth) return;
+    // match object-fit: contain
+    const s = Math.min(W / v.videoWidth, H / v.videoHeight);
+    const ox = (W - v.videoWidth * s) / 2;
+    const oy = (H - v.videoHeight * s) / 2;
+    px = (l) => [ox + frame[l * 3] * v.videoWidth * s, oy + frame[l * 3 + 1] * v.videoHeight * s];
+  }
+  const colorOf = (l) =>
+    l < SLICES.left_hand[1] ? cssVar("--left") : l < SLICES.right_hand[1] ? cssVar("--right") : l < SLICES.pose[1] ? "#c3c2b7" : "#e87ba4";
+  ctx.lineCap = "round";
+  ctx.lineWidth = 2.5 * devicePixelRatio;
+  for (const [a, b] of EDGES) {
+    if (Number.isNaN(frame[a * 3]) || Number.isNaN(frame[b * 3])) continue;
+    const [x1, y1] = px(a);
+    const [x2, y2] = px(b);
+    ctx.strokeStyle = colorOf(a);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#ffffff";
+  for (let l = 0; l < SLICES.pose[1]; l++) {
+    if (Number.isNaN(frame[l * 3])) continue;
+    const [x, y] = px(l);
+    ctx.beginPath();
+    ctx.arc(x, y, 2.2 * devicePixelRatio, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+}
+
+function onFrame(frame, now) {
+  const visible = handsVisible(frame);
+  app.frameTimes.push(now);
+  while (app.frameTimes.length && now - app.frameTimes[0] > 1000) app.frameTimes.shift();
+
+  if (app.fit) {
+    // replayed example: classified as a whole at the end
+  } else if (app.mode === "auto") {
+    const r = app.segmenter.push(frame);
+    ui.recFill.style.width = `${app.segmenter.progress() * 100}%`;
+    if (app.segmenter.state === "signing") setBadge("Signing…", "signing");
+    else if (!r.segment) setBadge(visible ? (app.segmenter.state === "cooldown" ? "Lower your hands or move on" : "Hands detected") : "Waiting for hands", "idle");
+    if (r.segment) { setBadge("Recognised", "done"); classify(r.segment, `auto (${r.reason})`); }
+  } else if (app.mode === "hold" && app.holdFrames) {
+    app.holdFrames.push(frame);
+    ui.recFill.style.width = `${Math.min(1, app.holdFrames.length / 120) * 100}%`;
+  } else if (app.mode === "file" && app.fileFrames) {
+    app.fileFrames.push(frame);
+  }
+  app.lastFrame = frame;
+  drawOverlay(frame);
+  if (app.fit) {
+    ui.fps.textContent = "replay";
+    ui.lat.textContent = `recorded landmarks · model ${app.modelMs.toFixed(1)} ms`;
+  } else {
+    ui.fps.textContent = `${app.frameTimes.length} fps`;
+    ui.lat.textContent = `landmarks ${app.mpMs.toFixed(0)} ms · model ${app.modelMs.toFixed(1)} ms`;
+  }
+}
+
+function detect(now) {
+  const v = ui.video;
+  const t0 = performance.now();
+  // VIDEO mode needs strictly increasing timestamps
+  app.tsCounter = Math.max(app.tsCounter + 1, Math.round(now));
+  const res = app.holistic.detectForVideo(v, app.tsCounter);
+  app.mpMs = performance.now() - t0;
+  return toUnified(res);
+}
+
+function cameraLoop() {
+  if (!app.running) return;
+  const v = ui.video;
+  if (v.readyState >= 2 && v.currentTime !== app.lastVideoTime) {
+    app.lastVideoTime = v.currentTime;
+    onFrame(detect(performance.now()), performance.now());
+  }
+  requestAnimationFrame(cameraLoop);
+}
+
 async function startCamera() {
   if (!app.holistic) return;
   stopFile();
@@ -259,6 +358,16 @@ async function analyseFile(file) {
   await ui.video.play();
 }
 
+function clipBounds(clip) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let i = 0; i < clip.T * L; i++) {
+    const x = clip.data[i * 3], y = clip.data[i * 3 + 1];
+    if (x === null || y === null) continue;
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  return { x0, y0, w: Math.max(x1 - x0, 1e-3), h: Math.max(y1 - y0, 1e-3) };
+}
+
 async function playExample() {
   if (!app.examples?.length || !app.model) return;
   stopCamera();
@@ -287,6 +396,16 @@ async function playExample() {
   await classify(frames, "example");
   const ok = ui.gloss.textContent === clip.label;
   ui.hint.textContent = `True sign: ${clip.label} ${ok ? "✓" : "✗"} · LSFB-ISOL test signer ${clip.signer}`;
+}
+
+function setMode(mode, sideEffects = true) {
+  app.mode = mode;
+  for (const b of ui.modePicker.children) b.setAttribute("aria-checked", String(b.dataset.mode === mode));
+  ui.recFill.style.width = "0%";
+  if (!sideEffects) return;
+  if (mode === "file") ui.fileInput.click();
+  else if (!app.running) startCamera();
+  if (mode === "hold") setBadge("Hold Space while signing", "idle");
 }
 
 function holdStart() {

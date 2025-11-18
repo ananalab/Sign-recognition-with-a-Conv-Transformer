@@ -106,6 +106,14 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
 .conf { font: 500 15px var(--mono); color: var(--ink-2); }
 .prediction.uncertain .gloss { color: var(--ink-2); }
 
+.bars { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.bars li { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 13px; }
+.bars .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars .val { color: var(--ink-2); font: 12px var(--mono); }
+.bars .track { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--soft); overflow: hidden; }
+.bars .fill { height: 100%; background: var(--ink); transition: width 0.3s ease; }
+.bars li:not(:first-child) .fill { background: var(--ink-2); opacity: 0.5; }
+
 .chips { display: flex; flex-wrap: wrap; gap: 4px; min-height: 24px; }
 .chips.scroll { max-height: 200px; overflow-y: auto; }
 .chips a, .chips span:not(.muted) {

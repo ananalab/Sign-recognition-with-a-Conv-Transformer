@@ -272,6 +272,28 @@ def data_analyses(dss: dict[str, PackedDataset]) -> dict:
     return out
 
 
+def data_figures() -> None:
+    dss = available()
+    if not dss:
+        print("no processed dataset found")
+        return
+    stats = fig_dataset_overview(dss)
+    rates = fig_missing(dss)
+    for name, r in rates.iterrows():
+        key = next(k for k, v in DATASETS.items() if v == name)
+        stats[key]["missing"] = {k: float(v) for k, v in r.items()}
+    fig_normalisation(dss)
+    fig_strips(dss)
+    sign_gifs(dss)
+    print(json.dumps(data_analyses(dss), indent=1))
+    (ROOT / "reports" / "dataset_stats.json").write_text(json.dumps(stats, indent=1))
+    print(json.dumps(stats, indent=1))
+
+
+def _load(path: Path) -> dict | None:
+    return json.loads(path.read_text()) if path.exists() else None
+
+
 def eval_report(run: str, subset: str) -> dict | None:
     return _load(ROOT / "reports" / "eval" / f"{run}_{subset}.json")
 
