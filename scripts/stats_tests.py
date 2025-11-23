@@ -21,5 +21,7 @@ from pathlib import Path
 
 import numpy as np
 
+from signrec.metrics import mcnemar, paired_bootstrap
+
 if __name__ == "__main__":
     main()

@@ -10,3 +10,37 @@
   \label{fig:pipeline}
 \end{figure}
 
+\Cref{fig:pipeline} summarises the system. A deterministic preprocessing function maps a raw
+landmark sequence to a fixed-size feature matrix, which is augmented during training only and
+classified by a sequence model.
+
+\subsection{Preprocessing}
+\label{sec:preprocessing}
+
+Let $X\in\mathbb{R}^{T\times L\times3}$ be a raw sequence. Preprocessing applies the following
+steps in order.
+
+\paragraph{Temporal trimming.} Leading and trailing frames without any detected hand are removed;
+a sequence in which no hand is ever detected is kept unchanged.
+
+\paragraph{Canonical dominant hand.} One-handed signs are produced with the dominant hand, and the
+handedness assigned by the landmark estimator depends on whether the image is mirrored. We count
+the frames in which each hand slot is detected and, if the left slot is more frequent, mirror the
+sequence: $x\mapsto 1-x$ for all points, combined with the permutation $\pi$ that swaps left and
+right hands, shoulders, elbows, wrists and symmetric lip points. The resulting features are
+invariant to a horizontal flip of the input whenever one hand dominates, a property verified by a
+unit test.
+
+The second stage is applied with probability $0.8$ \emph{after} shoulder normalisation, in the
+body frame: a rotation of up to $\pm15^\circ$, a per-axis scaling in $[0.8,1.2]$ and a translation
+of up to $0.1$ shoulder widths. Applied in image coordinates, before normalisation, translations
+and isotropic scalings would be cancelled exactly, as our unit tests confirm. Random draws are
+seeded by (seed, epoch, sample) for reproducibility.
+
+\paragraph{Transfer.} For cross-lingual transfer, all weights except the classifier are
+initialised from the ASL model, and a new classifier is trained for the target vocabulary. Since
+the input representation is identical across datasets, no adapter is required. We compare full
+fine-tuning with a variant that freezes the encoder during the first five epochs. Two additional
+controls test the robustness of the result: fine-tuning with a five times lower learning rate, and
+a linear probe in which the encoder stays frozen throughout training.
+

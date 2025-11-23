@@ -61,3 +61,5 @@ and `report.pdf`).
 - **Vocabulary.** Any sign outside the vocabulary is mapped to its closest vocabulary sign; low
   confidence is shown but there is no explicit rejection class.
 
+## Headline numbers (test signers never seen in training)
+
