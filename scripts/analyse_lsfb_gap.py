@@ -14,6 +14,16 @@ test signers. The script compares the two sets on factors that can explain an ac
     uv run python scripts/analyse_lsfb_gap.py [--run lsfb-scratch-nall]
 """
 
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+
+from signrec.preprocess import hand_presence
+from signrec.splits import load_split, split_indices
+from signrec.store import PackedDataset
 

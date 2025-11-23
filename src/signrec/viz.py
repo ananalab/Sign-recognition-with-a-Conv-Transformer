@@ -61,3 +61,18 @@ def _setup(ax: plt.Axes, bounds: tuple[float, float, float, float]) -> None:
     ax.axis("off")
 
 
+def save_gif(seq: np.ndarray, path: str | Path, title: str = "", fps: int = 15) -> None:
+    """Animated skeleton GIF (README / error analysis)."""
+    fig, ax = plt.subplots(figsize=(3, 3))
+    b = _bounds(seq)
+
+    def update(t: int) -> list:
+        ax.clear()
+        _setup(ax, b)
+        ax.set_title(f"{title}  [{t + 1}/{len(seq)}]", fontsize=8)
+        return draw_frame(ax, seq[t], lw=1.6, point_size=4)
+
+    anim = FuncAnimation(fig, update, frames=len(seq), blit=False)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    anim.save(str(path), writer=PillowWriter(fps=fps))
+    plt.close(fig)
