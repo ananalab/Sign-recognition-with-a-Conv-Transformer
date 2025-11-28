@@ -473,4 +473,17 @@ async function main() {
   }
 }
 
+// Test hook: class probabilities of example clip i, computed exactly as in the live demo.
+window.signrecExampleProbs = async (i) => {
+  const clip = app.examples[i];
+  const data = Float64Array.from(clip.data, (v) => (v === null ? NaN : v));
+  const { features, mask } = preprocess({ T: clip.T, data }, app.model.cfg, app.exampleYScale ?? 1.0);
+  const F = features.length / app.model.cfg.T;
+  const out = await app.model.session.run({
+    x: new ort.Tensor("float32", features, [1, app.model.cfg.T, F]),
+    mask: new ort.Tensor("float32", mask, [1, app.model.cfg.T]),
+  });
+  return { label: clip.label, probs: Array.from(out.probs.data) };
+};
+
 main();

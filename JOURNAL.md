@@ -107,3 +107,5 @@ Decisions, rationale and measured results, in chronological order.
 - Fix: keep the input projection in FP32 -> INT8 top-1 68.4 % vs 67.9 % FP32, 2.5 MB vs 8.3 MB.
 - Future work: clip the hand-size denominator in preprocessing (would require retraining).
 
+## Ablations and leakage (Conv-Transformer, seed 0, validation signers)
+

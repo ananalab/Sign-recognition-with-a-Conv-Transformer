@@ -306,6 +306,20 @@ def seeds(prefix: str, n: int = 3) -> list[str]:
     return [f"{prefix}-s{i}" for i in range(n) if run_metrics(f"{prefix}-s{i}")]
 
 
+def mean_std(values: list[float]) -> tuple[float, float]:
+    a = np.asarray(values, dtype=float)
+    return float(a.mean()), float(a.std(ddof=1)) if len(a) > 1 else 0.0
+
+
+def pct(v: float, d: int = 1) -> str:
+    return f"{100 * v:.{d}f}"
+
+
+def pm(values: list[float], d: int = 1) -> str:
+    m, s = mean_std(values)
+    return f"{pct(m, d)} $\\pm$ {pct(s, d)}" if len(values) > 1 else pct(m, d)
+
+
 def numbers_from_data(nums: Numbers) -> None:
     stats = _load(ROOT / "reports" / "dataset_stats.json") or {}
     if "kaggle_asl" in stats:
