@@ -192,5 +192,33 @@ def export_examples(n: int, seed: int = 0) -> None:
     print(f"wrote {len(picked)} examples to {out.relative_to(ROOT)}")
 
 
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--model", action="append", default=[], help="id=checkpoint (id: asl | lsfb)")
+    ap.add_argument("--examples", type=int, default=0, help="number of LSFB example clips")
+    ap.add_argument("--precision", choices=["fp32", "int8"], default="fp32")
+    a = ap.parse_args()
+    if a.examples:
+        export_examples(a.examples)
+    data = {"asl": ("data/processed/kaggle_asl", "splits/kaggle_asl_signer.json"),
+            "lsfb": ("data/processed/lsfb_isol", "splits/lsfb_isol_signer.json")}  # fmt: skip
+    index_path = ROOT / "app/web/models/index.json"
+    index = json.loads(index_path.read_text())["models"] if index_path.exists() else []
+    for spec in a.model:
+        mid, ckpt = spec.split("=", 1)
+        entry = package_model(mid, ROOT / ckpt, *data[mid], precision=a.precision)
+        index = [m for m in index if m["id"] != mid] + [entry]
+    if index:
+        for m in index:
+            m["easy"] = easy_signs(m["id"])
+        index.sort(key=lambda m: m["id"])
+        index_path.write_text(json.dumps({"models": index}, indent=1, ensure_ascii=False))
+    (ROOT / "app/web/js/landmarks.js").write_text(landmarks_js())
+    out = ROOT / "tests/fixtures/js_parity.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(fixtures()))
+    print(f"wrote app/web/js/landmarks.js and {out.relative_to(ROOT)}")
+
+
 if __name__ == "__main__":
     main()

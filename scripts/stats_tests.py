@@ -23,5 +23,25 @@ import numpy as np
 
 from signrec.metrics import mcnemar, paired_bootstrap
 
+ROOT = Path(__file__).resolve().parents[1]
+EVAL = ROOT / "reports" / "eval"
+SEEDS = (0, 1, 2)
+
+
+def main() -> None:
+    res: dict = {}
+    tr, gru = load("asl-transformer", "test"), load("asl-gru", "test")
+    if tr and gru:
+        res["asl_transformer_vs_gru_test"] = compare(tr, gru, ("signer", "clip"))
+    scratch = load("lsfb-scratch-nall", "test")
+    for other in ("ft", "ftfreeze"):
+        b = load(f"lsfb-{other}-nall", "test")
+        if scratch and b:
+            res[f"lsfb_{other}_vs_scratch_test"] = compare(b, scratch, ("signer", "clip"))
+    out = ROOT / "reports" / "stats.json"
+    out.write_text(json.dumps(res, indent=1))
+    print(f"wrote {out.relative_to(ROOT)} ({', '.join(res)})")
+
+
 if __name__ == "__main__":
     main()

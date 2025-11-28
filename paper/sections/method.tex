@@ -31,6 +31,19 @@ right hands, shoulders, elbows, wrists and symmetric lip points. The resulting f
 invariant to a horizontal flip of the input whenever one hand dominates, a property verified by a
 unit test.
 
+\paragraph{Spatial normalisation.} Let $s^{l}_t$ and $s^{r}_t$ denote the shoulder positions in
+frame $t$, and $\mathcal{T}_s$ the set of frames in which both are detected. All points are
+centred and scaled as
+\begin{equation}
+  c = \frac{1}{|\mathcal{T}_s|}\sum_{t\in\mathcal{T}_s}\frac{s^{l}_t+s^{r}_t}{2}, \qquad
+  w = \frac{1}{|\mathcal{T}_s|}\sum_{t\in\mathcal{T}_s}\lVert s^{l}_t-s^{r}_t\rVert_2, \qquad
+  \tilde{X}_{t,j} = \frac{X_{t,j}-c}{w},
+\end{equation}
+applied to $(x,y)$, with $z$ divided by $w$. Both constants are computed over the whole clip, so
+that the motion of the hands relative to the body is preserved. If the shoulders are missing or
+degenerate ($w<0.02$), the centroid of all visible points and four times their mean standard
+deviation are used instead.
+
 \paragraph{Features.} Each frame is described by (i) the normalised $(x,y)$ coordinates of the 89
 landmarks; (ii) the dominant hand expressed relative to its wrist and divided by the length of the
 segment from the wrist to the base of the middle finger, which separates handshape from hand
