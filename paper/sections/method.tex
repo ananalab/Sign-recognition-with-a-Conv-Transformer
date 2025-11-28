@@ -31,6 +31,13 @@ right hands, shoulders, elbows, wrists and symmetric lip points. The resulting f
 invariant to a horizontal flip of the input whenever one hand dominates, a property verified by a
 unit test.
 
+\paragraph{Features.} Each frame is described by (i) the normalised $(x,y)$ coordinates of the 89
+landmarks; (ii) the dominant hand expressed relative to its wrist and divided by the length of the
+segment from the wrist to the base of the middle finger, which separates handshape from hand
+position; and (iii) the first-order temporal differences of (i) and (ii). Depth is discarded by
+default. This yields $F = 2\times(89+21)\times2 = 440$ features per frame. Remaining missing values
+are set to zero, i.e.\ missing landmarks are encoded at the body centre.
+
 The second stage is applied with probability $0.8$ \emph{after} shoulder normalisation, in the
 body frame: a rotation of up to $\pm15^\circ$, a per-axis scaling in $[0.8,1.2]$ and a translation
 of up to $0.1$ shoulder widths. Applied in image coordinates, before normalisation, translations
