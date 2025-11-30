@@ -61,5 +61,12 @@ and `report.pdf`).
 - **Vocabulary.** Any sign outside the vocabulary is mapped to its closest vocabulary sign; low
   confidence is shown but there is no explicit rejection class.
 
+## Ethical considerations
+
+- Landmarks of the face and body can still identify a person; the demo processes them locally
+  and stores nothing.
+- Sign language technologies should be built with and for Deaf communities. This project is an
+  academic study and has not been evaluated by Deaf signers.
+
 ## Headline numbers (test signers never seen in training)
 

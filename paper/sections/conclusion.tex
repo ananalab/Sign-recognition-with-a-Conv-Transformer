@@ -16,3 +16,7 @@ training-set size, even with five examples per sign, and with all training data 
 accuracy by a small but significant margin. Differences in recording and elicitation
 conditions likely outweigh what the two languages share at the level of pose features.
 
+\paragraph{RQ3 Deployment.} The complete pipeline runs in a web browser, classifies a sign in
+\numFpBrowser{}\,ms on one CPU thread and reproduces the predictions of the PyTorch model on every
+tested clip. INT8 quantisation reduces model size but not latency on CPU.
+
