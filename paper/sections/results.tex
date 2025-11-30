@@ -1,0 +1,24 @@
+\section{Results}
+\label{sec:results}
+
+\subsection{ASL: baselines and sequence models}
+\label{sec:results-asl}
+
+\begin{table}[t]
+  \centering
+  \caption{ASL results (\numAslClasses{} signs). Validation and test sets contain 3 and 4 signers
+  absent from training. Sequence models: mean $\pm$ standard deviation over three seeds, 50
+  epochs. The last column is the standard deviation of top-1 accuracy across the four test
+  signers. All values in \%.}
+  \label{tab:main}
+  \small
+  \input{tables/main_results.tex}
+\end{table}
+
+\Cref{tab:main} reports the main comparison. Temporal statistics are already informative: a
+logistic regression reaches \numAslLogregTest{}\,\% top-1 on unseen signers, about
+\numAslLogregChance{} times chance level. Gradient-boosted trees fit the training signers better
+but generalise worse (\numAslLgbmTest{}\,\% on test, \numAslLgbmDrop{} points below their
+validation score, against \numAslLogregDrop{} points for the linear model). With only 14
+training signers, flexible models on hand-crafted statistics capture signer-specific cues.
+

@@ -23,6 +23,65 @@ PART_COLORS = {"left_hand": SERIES[1], "right_hand": SERIES[0], "pose": INK_3, "
 COL_W, FULL_W = 3.05, 6.3
 
 
+def paper_style() -> None:
+    """Matplotlib defaults for print figures: serif text, recessive axes, thin marks."""
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
+            "mathtext.fontset": "stix",
+            "font.size": 8,
+            "axes.titlesize": 8.5,
+            "axes.labelsize": 8,
+            "xtick.labelsize": 7,
+            "ytick.labelsize": 7,
+            "legend.fontsize": 7,
+            "legend.frameon": False,
+            "axes.edgecolor": INK_3,
+            "axes.labelcolor": INK,
+            "axes.linewidth": 0.6,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+            "axes.grid": True,
+            "axes.axisbelow": True,
+            "grid.color": GRID,
+            "grid.linewidth": 0.5,
+            "xtick.color": INK_2,
+            "ytick.color": INK_2,
+            "xtick.major.width": 0.5,
+            "ytick.major.width": 0.5,
+            "lines.linewidth": 1.4,
+            "lines.markersize": 4,
+            "axes.prop_cycle": plt.cycler(color=SERIES),
+            "figure.dpi": 150,
+            "savefig.dpi": 300,
+            "savefig.bbox": "tight",
+            "savefig.pad_inches": 0.02,
+            "figure.facecolor": SURFACE,
+            "axes.facecolor": SURFACE,
+        }
+    )
+
+
+def save(fig: plt.Figure, path: str | Path) -> None:
+    """Save as vector PDF (for LaTeX) and PNG (for README/web)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path.with_suffix(".pdf"))
+    fig.savefig(path.with_suffix(".png"))
+    plt.close(fig)
+
+
+_EDGES = np.array(skeleton_edges())
+
+
+def _edge_part(a: int) -> str:
+    for name, sl in SLICES.items():
+        if sl.start <= a < sl.stop:
+            return name
+    return "pose"
+
+
 def draw_frame(ax: plt.Axes, frame: np.ndarray, lw: float = 1.0, point_size: float = 2.0) -> list:
     """Draw one ``[L, 3]`` frame (image coordinates, y down) on ``ax``; returns the artists.
 
