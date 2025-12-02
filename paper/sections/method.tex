@@ -44,12 +44,26 @@ that the motion of the hands relative to the body is preserved. If the shoulders
 degenerate ($w<0.02$), the centroid of all visible points and four times their mean standard
 deviation are used instead.
 
+\paragraph{Fixed length.} The clip is linearly resampled to $T'=64$ frames, which also normalises
+signing speed and frame rate (30\,fps for ASL, 50\,fps for LSFB). When an interpolation involves a
+missing neighbour, the value of the nearest frame is used. Zero-padding with a mask is evaluated as
+an alternative in \cref{sec:ablations}.
+
 \paragraph{Features.} Each frame is described by (i) the normalised $(x,y)$ coordinates of the 89
 landmarks; (ii) the dominant hand expressed relative to its wrist and divided by the length of the
 segment from the wrist to the base of the middle finger, which separates handshape from hand
 position; and (iii) the first-order temporal differences of (i) and (ii). Depth is discarded by
 default. This yields $F = 2\times(89+21)\times2 = 440$ features per frame. Remaining missing values
 are set to zero, i.e.\ missing landmarks are encoded at the body centre.
+
+\subsection{Data augmentation}
+Augmentation is applied during training only, in two stages. The first stage acts on the raw
+sequence: a time warp combining a global speed change ($\sigma\sim\mathcal{U}[0.8,1.2]$, the clip
+being resampled to $T/\sigma$ frames) with a smooth monotonic warp of the time axis over four
+segments with relative speeds in $[0.7,1.3]$; random frame dropping ($p=0.1$); random masking of
+individual landmarks ($p=0.05$) and of a whole hand in a frame ($p=0.05$); and Gaussian noise
+($\sigma=0.002$). The non-uniform component is essential: since every clip is resampled to $T'$
+frames, a uniform speed change alone would be almost entirely undone by length normalisation.
 
 The second stage is applied with probability $0.8$ \emph{after} shoulder normalisation, in the
 body frame: a rotation of up to $\pm15^\circ$, a per-axis scaling in $[0.8,1.2]$ and a translation

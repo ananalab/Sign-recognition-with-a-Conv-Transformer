@@ -27,3 +27,44 @@ from signrec.preprocess import hand_presence
 from signrec.splits import load_split, split_indices
 from signrec.store import PackedDataset
 
+ROOT = Path(__file__).resolve().parents[1]
+SEEDS = (0, 1, 2)
+
+
+def js_divergence(p: np.ndarray, q: np.ndarray) -> float:
+    """Jensen-Shannon divergence (bits) between two discrete distributions."""
+    p, q = p / p.sum(), q / q.sum()
+    m = (p + q) / 2
+
+    def kl(a: np.ndarray, b: np.ndarray) -> float:
+        nz = a > 0
+        return float((a[nz] * np.log2(a[nz] / b[nz])).sum())
+
+    return 0.5 * kl(p, m) + 0.5 * kl(q, m)
+
+
+def describe(ds: PackedDataset, rows: np.ndarray, train_counts: np.ndarray) -> dict:
+    idx = ds.index.iloc[rows]
+    no_hand = [float((~hand_presence(ds.sequence(int(r))).any(1)).mean()) for r in rows]
+    counts = np.bincount(ds.targets()[rows], minlength=ds.n_classes).astype(float)
+    return {
+        "n_signers": int(idx.signer_id.nunique()),
+        "n_clips": len(rows),
+        "clips_per_signer_median": float(idx.groupby("signer_id").size().median()),
+        "duration_s_median": float((idx.n_frames / idx.fps).median()),
+        "no_hand_share_mean": float(np.mean(no_hand)),
+        "class_js_vs_train_bits": js_divergence(counts + 1e-12, train_counts + 1e-12),
+        "mean_train_examples_of_class": float(train_counts[ds.targets()[rows]].mean()),
+    }
+
+
+def predictions(run: str, subset: str) -> dict | None:
+    paths = [ROOT / "reports" / "eval" / f"{run}-s{s}_{subset}.npz" for s in SEEDS]
+    paths = [p for p in paths if p.exists()]
+    if not paths:
+        return None
+    zs = [np.load(p, allow_pickle=True) for p in paths]
+    correct = np.mean([z["probs"].argmax(1) == z["y"] for z in zs], axis=0)
+    return {"rows": zs[0]["rows"], "y": zs[0]["y"], "correct": correct, "n_seeds": len(zs)}
+
+

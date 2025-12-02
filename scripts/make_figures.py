@@ -562,6 +562,15 @@ def fig_ablations(nums: Numbers) -> None:
     )
 
 
+def stats() -> dict:
+    return _load(ROOT / "reports" / "stats.json") or {}
+
+
+def fmt_p(p: float) -> str:
+    """p-value for the text: two significant digits, or an upper bound below 0.001."""
+    return "p<0.001" if p < 1e-3 else f"p={p:.2g}"
+
+
 def significance(nums: Numbers) -> None:
     """Macros from reports/stats.json (paired tests between models)."""
     st = stats()
