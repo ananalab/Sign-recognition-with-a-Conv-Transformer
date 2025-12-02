@@ -109,3 +109,26 @@ Decisions, rationale and measured results, in chronological order.
 
 ## Ablations and leakage (Conv-Transformer, seed 0, validation signers)
 
+Reference: 68.3 % val top-1. One factor changed at a time.
+
+| Variant | Val top-1 | Δ | Note |
+|---|---|---|---|
+| pad + mask instead of resampling | 69.5 | +1.2 | |
+| no lips | 68.8 | +0.5 | |
+| T' = 32 | 68.4 | +0.2 | |
+| hands only (no body, no lips) | 68.3 | 0.0 | |
+| T' = 96 | 67.5 | −0.8 | |
+| no augmentation | 67.0 | −1.3 | |
+| no velocities | 66.6 | −1.7 | |
+| with depth z | 65.5 | −2.8 | early-stopped at epoch 31 -> re-run without early stopping |
+| no canonical hand | 64.5 | −3.8 | |
+| no hand-local features | 63.8 | −4.5 | early-stopped at epoch 21 -> re-run without early stopping |
+
+- Early stopping on a plateau while the learning rate is still high penalises a run by ~3 pts
+  (it misses the end of the cosine schedule). Both affected ablations re-run for 50 full epochs.
+- Seed-to-seed std of the reference is 0.1 pt (val), so ±0.5 pt differences are borderline.
+- Lips and upper body bring nothing measurable on ASL; the canonical dominant hand and the
+  hand-local shape features matter most.
+- **Leakage**: with a random sample-level split, test top-1 = 81.7 % vs 64.8 % on unseen signers
+  (+16.9 pts of optimism).
+
