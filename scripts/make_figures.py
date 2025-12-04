@@ -593,6 +593,56 @@ def significance(nums: Numbers) -> None:
             nums[f"numLsfb{name}P"] = fmt_p(b["p"])
 
 
+def lsfb_gap_numbers(nums: Numbers) -> None:
+    g = _load(ROOT / "reports" / "lsfb_gap.json")
+    if not g or "accuracy" not in g:
+        return
+    a, sv, stt = g["accuracy"], g["splits"]["val"], g["splits"]["test"]
+    nums["numGapValSigners"] = sv["n_signers"]
+    nums["numGapTopThreeShare"] = pct(a["val_top3_signer_clip_share"], 0)
+    nums["numGapValPerSigner"] = pct(a["val_per_signer_mean"])
+    nums["numGapValPerSignerSem"] = pct(a["val_per_signer_sem"])
+    nums["numGapTestPerSigner"] = pct(a["test_per_signer_mean"])
+    nums["numGapTestPerSignerSem"] = pct(a["test_per_signer_sem"])
+    nums["numGapTestReweighted"] = pct(a["test_reweighted_to_val_classes"])
+    nums["numGapValClip"] = pct(a["val"])
+    nums["numGapTestClip"] = pct(a["test"])
+    nums["numGapTestPartnerIn"] = pct(a["test_partner_in_train"])
+    nums["numGapTestPartnerOut"] = pct(a["test_partner_not_in_train"])
+    nums["numGapTestPartnerInN"] = a["test_partner_in_train_n_signers"]
+    nums["numGapTestSigners"] = stt["n_signers"]
+    nums["numGapValPartnerInN"] = sv["signers_with_partner_in_train"]
+
+
+def short_clip_numbers(nums: Numbers, dss: dict[str, PackedDataset]) -> None:
+    """Accuracy of very short (probably truncated) ASL test clips vs. typical ones."""
+    files = [ROOT / "reports" / "eval" / f"asl-transformer-s{i}_test.npz" for i in range(3)]
+    if "kaggle_asl" not in dss or not all(f.exists() for f in files):
+        return
+    ds = dss["kaggle_asl"]
+    zs = [np.load(f, allow_pickle=True) for f in files]
+    correct = np.mean([z["probs"].argmax(1) == z["y"] for z in zs], 0)
+    lengths = np.array([trim_handless(ds.sequence(int(r))).shape[0] for r in zs[0]["rows"]])
+    full = zs[0]["missing"] == 0
+    # among clips with a hand in every frame (the bin whose accuracy dips in fig:signers)
+    nums["numShortAcc"] = pct(correct[full & (lengths <= 10)].mean(), 0)
+    nums["numTypicalAcc"] = pct(correct[full & (lengths >= 20) & (lengths <= 40)].mean(), 0)
+    nums["numFullHandFrames"] = f"{np.median(lengths[full]):.0f}"
+    nums["numPartHandFrames"] = (
+        f"{np.median(lengths[(zs[0]['missing'] > 0) & (zs[0]['missing'] <= 0.1)]):.0f}"
+    )
+
+
+def leakage(nums: Numbers) -> None:
+    rnd = eval_report("abl-random-split", "test")
+    sig = [eval_report(r, "test") for r in seeds("asl-transformer")]
+    sig = [s for s in sig if s]
+    if rnd and sig:
+        nums["numLeakRandom"] = pct(rnd["top1"])
+        nums["numLeakSigner"] = pct(mean_std([s["top1"] for s in sig])[0])
+        nums["numLeakGap"] = f"{100 * (rnd['top1'] - mean_std([s['top1'] for s in sig])[0]):.1f}"
+
+
 def fig_training_curves() -> None:
     fig, ax = plt.subplots(figsize=(viz.COL_W, 1.9))
     drawn = False
@@ -660,6 +710,20 @@ def fig_per_signer_and_missing() -> None:
     fig.tight_layout(w_pad=1.5, rect=(0, 0, 1, 0.9))
     fig.legend(handles, labels, loc="upper center", ncols=2, bbox_to_anchor=(0.5, 1.0))
     viz.save(fig, FIG / "signers_missing")
+
+
+def table_confusions(k: int = 12) -> None:
+    runs = seeds("asl-transformer")
+    rep = eval_report(runs[0], "test") if runs else None
+    if not rep:
+        return
+    rows = [f"{p['true']} & {p['pred']} & {p['count']} & {100 * p['rate']:.0f}\\,\\% \\\\"
+            for p in rep["confused_pairs"][:k]]  # fmt: skip
+    (TAB / "confusions.tex").write_text(
+        "\\begin{tabular}{llrr}\n\\toprule\nTrue sign & Predicted & Count & Rate \\\\\n\\midrule\n"
+        + "\n".join(rows).replace("_", "\\_")
+        + "\n\\bottomrule\n\\end{tabular}\n"
+    )
 
 
 def transfer_checks(nums: Numbers) -> None:

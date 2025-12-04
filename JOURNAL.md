@@ -141,6 +141,18 @@ Reference: 68.3 % val top-1. One factor changed at a time.
 | From scratch | 25.7 | 36.6 | 51.6 | 60.0 | 66.5 | 77.0 |
 | ASL-pretrained, fine-tuned | 27.1 | 36.9 | 50.8 | 57.4 | 63.0 | 74.9 |
 
+- Test (40 signers, all data): scratch 68.3 ± 0.2, fine-tuned 66.2 ± 0.2, frozen-then-tuned 66.6.
+  **ASL pre-training does not help at any size** (the +1.4 at 5 examples is within one s.d.).
+- Linear probe on the frozen ASL encoder: 38.3 % (val) < logistic regression on statistics (57.0 %).
+- Weekly Kaggle GPU quota (30 h) exhausted; remaining checks run locally on the M1 (MPS).
+
+**ASL**
+- 150-epoch schedule: 67.5 % val vs 68.3 % at 50 epochs -> no headroom from longer training.
+- Re-run without early stopping: no hand-local −0.8 (was −4.4), depth −1.1 (was −2.7).
+  Four other ablations stopped at epochs 41–46 and are flagged † in the paper.
+- Seed ensembles (free): ASL 67.4 % test (single 64.8), LSFB 70.9 % (single 68.3).
+- Demo now ships the from-scratch LSFB model (best on validation); browser parity 40/40.
+
 - `scripts/stats_tests.py`: paired bootstrap of accuracy differences (hierarchical over signers,
   or over clips within signers) and exact McNemar tests on seed ensembles.
   - ASL, Conv-Transformer vs BiGRU: +1.8 pts, 95 % interval [0.9, 2.9] with signers resampled,
