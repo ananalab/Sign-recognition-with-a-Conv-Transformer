@@ -132,3 +132,29 @@ Reference: 68.3 % val top-1. One factor changed at a time.
 - **Leakage**: with a random sample-level split, test top-1 = 81.7 % vs 64.8 % on unseen signers
   (+16.9 pts of optimism).
 
+## Transfer study, long schedule, corrected ablations
+
+**LSFB (validation top-1, 3 seeds)**
+
+| Examples per sign | 5 | 10 | 25 | 50 | 100 | all |
+|---|---|---|---|---|---|---|
+| From scratch | 25.7 | 36.6 | 51.6 | 60.0 | 66.5 | 77.0 |
+| ASL-pretrained, fine-tuned | 27.1 | 36.9 | 50.8 | 57.4 | 63.0 | 74.9 |
+
+- `scripts/stats_tests.py`: paired bootstrap of accuracy differences (hierarchical over signers,
+  or over clips within signers) and exact McNemar tests on seed ensembles.
+  - ASL, Conv-Transformer vs BiGRU: +1.8 pts, 95 % interval [0.9, 2.9] with signers resampled,
+    McNemar p < 0.001. The ranking does not depend on the four test signers.
+  - LSFB, ASL-pretrained vs scratch (all data): −2.1 pts [−2.8, −1.4] (fine-tuned) and −1.7 pts
+    [−2.3, −1.2] (frozen 5 epochs): pre-training is slightly but significantly harmful.
+- `scripts/analyse_lsfb_gap.py`: LSFB validation accuracy (77.2 %) exceeds test accuracy (68.3 %)
+  mainly because 3 of the 9 validation signers contribute 75 % of its clips; per signer, 72.7 ± 2.5 %
+  (validation) vs 67.9 ± 2.0 % (test). Re-weighting the test classes to the validation distribution
+  gives 70.2 %. Test signers whose dialogue partner is a training signer: 71.8 % vs 64.7 %.
+- Known limitations made explicit in the report: velocities are computed after resampling to 64
+  frames (scale depends on clip length and frame rate), all transfer runs start from ASL seed 0, and
+  the linear probe still updated batch-normalisation statistics of the frozen encoder.
+- `tests/conftest.py` loads onnxruntime before torch: in the other order the test process aborted
+  intermittently at exit on macOS ("recursive_mutex lock failed").
+- The LaTeX sources are versioned in `paper/`; `make paper` rebuilds `report.pdf`, and the macro
+  file is rewritten from scratch so that no stale number survives.

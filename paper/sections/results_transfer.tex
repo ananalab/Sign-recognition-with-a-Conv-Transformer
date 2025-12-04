@@ -31,3 +31,35 @@ indistinguishable from 5 to 25 examples per sign (the largest difference, \numGa
 5 examples, lies within one seed standard deviation), and the model trained from scratch leads
 from 50 examples per sign onwards, by \numScratchLeadAll{} points with all data.
 
+\paragraph{Controls.}
+Two controls exclude an inadequate fine-tuning procedure as the explanation. First, a linear probe
+trained on top of the frozen ASL encoder with all LSFB training data reaches \numProbeAll{}\,\%
+validation top-1, far below the model trained from scratch (\numLsfbScratchVal{}\,\%) and even
+below the logistic regression on temporal statistics (\numLsfbLogregVal{}\,\%). The ASL
+representation therefore retains some information about LSFB signs, but less than simple features
+of the target data. Second, with 25 examples per sign, fine-tuning with a five times lower
+learning rate gives \numLowlrTwentyFive{}\,\% validation top-1, below both standard fine-tuning
+(\numFtTwentyFive{}\,\%) and training from scratch (\numScratchTwentyFive{}\,\%) with the same seed.
+Both controls use a single seed, and every transfer run starts from the ASL model of seed 0, so
+the variability of the pre-trained model itself is not sampled. During the linear probe, the
+batch-normalisation statistics of the frozen encoder were still updated on LSFB, a mild form of
+adaptation; the probe is therefore, if anything, favoured, which does not change its conclusion.
+
+\begin{figure}[t]
+  \centering
+  \begin{minipage}[b]{0.44\linewidth}
+    \includegraphics[width=\linewidth]{transfer_curve}
+    \caption{LSFB validation top-1 as a function of the number of training examples per sign
+    (mean $\pm$ s.d.\ over three seeds). ``All'' corresponds to a median of \numLsfbMedianPerClass{} examples per
+    sign.}
+    \label{fig:transfer}
+  \end{minipage}\hfill
+  \begin{minipage}[b]{0.53\linewidth}
+    \centering
+    \small
+    \captionof{table}{LSFB-ISOL, 100 glosses, all training data. Mean $\pm$ s.d.\ over three
+    seeds, values in \%.}
+    \label{tab:transfer}
+    \resizebox{\linewidth}{!}{\input{tables/transfer.tex}}
+  \end{minipage}
+\end{figure}

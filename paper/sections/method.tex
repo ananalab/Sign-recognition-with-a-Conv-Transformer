@@ -71,6 +71,15 @@ of up to $0.1$ shoulder widths. Applied in image coordinates, before normalisati
 and isotropic scalings would be cancelled exactly, as our unit tests confirm. Random draws are
 seeded by (seed, epoch, sample) for reproducibility.
 
+\subsection{Models}
+
+\paragraph{Input projection.} Both models first project each frame to $d=192$ dimensions with two
+linear layers, layer normalisation and GELU activations.
+
+\paragraph{BiGRU.} Two bidirectional GRU layers \citep{cho2014gru} with 192 hidden units per
+direction, followed by masked mean and max pooling over time and a linear classifier
+(\numGruParams{}\,M parameters).
+
 \paragraph{Transfer.} For cross-lingual transfer, all weights except the classifier are
 initialised from the ASL model, and a new classifier is trained for the target vocabulary. Since
 the input representation is identical across datasets, no adapter is required. We compare full
