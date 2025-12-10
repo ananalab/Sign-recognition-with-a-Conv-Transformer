@@ -70,3 +70,10 @@ and `report.pdf`).
 
 ## Headline numbers (test signers never seen in training)
 
+| | ASL model | LSFB model |
+|---|---|---|
+| Top-1 / top-5 | 64.8 % / 84.0 % | 68.3 % / 87.7 % |
+| Macro-F1 | 64.1 % | 63.9 % |
+| Accuracy range across test signers | 61.9–69.5 % (4 signers) | see `reports/eval/` (40 signers) |
+| Accuracy when no hand is detected in > 50 % of frames | 52.0 % |, |
+| Browser latency per sign (1 CPU thread, Apple M1) | 16 ms | 16 ms |

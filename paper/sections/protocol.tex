@@ -19,3 +19,12 @@ the choice of the test signers; the \emph{clip-level} bootstrap only draws clips
 and treats the signers as fixed. We also apply an exact McNemar test \citep{mcnemar1947note} to the
 predictions of the seed ensembles.
 
+\paragraph{Baselines.} Besides chance level, we compute per-coordinate temporal statistics (mean,
+standard deviation, minimum and maximum of the normalised position features over the clip,
+$4\times220$ features) and classify them with a multinomial logistic regression or with
+gradient-boosted trees (LightGBM).
+
+\paragraph{Seeds and compute.} Main models are trained with three seeds and reported as mean
+$\pm$ standard deviation; ablations use a single seed. Deep models are trained on one NVIDIA T4 GPU
+in a cloud notebook, except for two transfer controls run on the GPU of an Apple M1 laptop once
+the cloud quota was exhausted. Latency is measured on the laptop CPU with one thread.

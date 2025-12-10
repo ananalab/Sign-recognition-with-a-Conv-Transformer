@@ -49,3 +49,14 @@ async def capture(port: int, gloss: str, n_clips: int = 40) -> None:
         shutil.copyfile(OUT[0], dst)
 
 
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--gloss", default="EQUIPE")
+    args = ap.parse_args()
+    with serve(WEB) as port:
+        asyncio.run(capture(port, args.gloss))
+    print("saved", *OUT)
+
+
+if __name__ == "__main__":
+    main()
