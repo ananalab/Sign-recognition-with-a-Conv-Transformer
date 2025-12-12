@@ -80,10 +80,39 @@ linear layers, layer normalisation and GELU activations.
 direction, followed by masked mean and max pooling over time and a linear classifier
 (\numGruParams{}\,M parameters).
 
+\paragraph{Convolution--Transformer.} After a learned positional embedding, the network stacks two
+stages, each made of three convolution blocks and one Transformer block
+\citep{vaswani2017attention}. A convolution block is a pre-norm residual unit: pointwise expansion
+with a gated linear unit \citep{dauphin2017glu}, depthwise temporal convolution with kernel size 17,
+batch normalisation, SiLU and pointwise projection, as in the convolution module of the Conformer
+\citep{gulati2020conformer}. Transformer blocks use four heads and an MLP ratio of two. The
+sequence is mean-pooled under the mask before the classifier (\numTrParams{}\,M parameters).
+Attention is implemented with plain matrix products, so that the model exports to ONNX without
+custom operators. We refer to this model as the Conv-Transformer.
+
+\subsection{Training}
+Models are trained with AdamW \citep{loshchilov2019adamw} (learning rate $10^{-3}$, weight decay
+$0.05$, batch size 128), a cosine schedule with three warm-up epochs, label smoothing of $0.1$
+\citep{szegedy2016rethinking} and gradient clipping at norm 1, for at most 50 epochs. Early stopping
+monitors the validation macro-F1 with a patience of 10 epochs, and the checkpoint with the best
+validation macro-F1 is retained. Mixed precision is used on GPU. \Cref{app:hparams} lists all
+hyper-parameters.
+
 \paragraph{Transfer.} For cross-lingual transfer, all weights except the classifier are
 initialised from the ASL model, and a new classifier is trained for the target vocabulary. Since
 the input representation is identical across datasets, no adapter is required. We compare full
 fine-tuning with a variant that freezes the encoder during the first five epochs. Two additional
 controls test the robustness of the result: fine-tuning with a five times lower learning rate, and
 a linear probe in which the encoder stays frozen throughout training.
+
+\subsection{Browser runtime}
+\label{sec:runtime}
+
+The demo runs the MediaPipe Holistic Landmarker (Tasks API, WebAssembly with GPU delegate) on the
+webcam stream, builds the 89-landmark frame and passes it to a segmenter that detects the start
+and end of each sign. The segmenter is a state machine: a sign starts after three consecutive
+frames with a visible hand and ends when the hands disappear for six frames, remain still (mean
+hand displacement below $0.012$ shoulder widths per frame) for fourteen frames, or after 120
+frames. The segment is then preprocessed by the JavaScript port and classified by the ONNX model
+with ONNX Runtime Web \citep{onnxruntime} (WebAssembly backend).
 
