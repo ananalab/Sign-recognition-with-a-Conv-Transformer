@@ -82,6 +82,9 @@ def _edge_part(a: int) -> str:
     return "pose"
 
 
+_EDGE_COLORS = [PART_COLORS[_edge_part(a)] for a, _ in _EDGES]
+
+
 def draw_frame(ax: plt.Axes, frame: np.ndarray, lw: float = 1.0, point_size: float = 2.0) -> list:
     """Draw one ``[L, 3]`` frame (image coordinates, y down) on ``ax``; returns the artists.
 

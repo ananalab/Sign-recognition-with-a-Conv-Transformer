@@ -726,6 +726,54 @@ def table_confusions(k: int = 12) -> None:
     )
 
 
+def error_numbers(nums: Numbers) -> None:
+    """Per-signer range, effect of missing hands and hardest classes (Conv-Transformer, test)."""
+    reps = [r for r in (eval_report(x, "test") for x in seeds("asl-transformer")) if r]
+    if not reps:
+        return
+    by: dict[str, list[float]] = {}
+    for r in reps:
+        for d in r["by_signer"]:
+            by.setdefault(str(d["g"]), []).append(d["acc"])
+    means = {k: float(np.mean(v)) for k, v in by.items()}
+    nums["numSignerMin"] = pct(min(means.values()))
+    nums["numSignerMax"] = pct(max(means.values()))
+    bins = {d["bin"]: d for d in reps[0]["by_missing"]}
+    total = sum(d["n"] for d in bins.values())
+    nums["numMissHighAcc"] = pct(
+        np.mean([{d["bin"]: d for d in r["by_missing"]}[">50%"]["acc"] for r in reps])
+    )
+    nums["numMissHighShare"] = f"{100 * bins['>50%']['n'] / total:.0f}"
+    nums["numMissLowAcc"] = pct(
+        np.mean([{d["bin"]: d for d in r["by_missing"]}["0-10%"]["acc"] for r in reps])
+    )
+    worst = reps[0]["worst_classes"][:3]
+    nums["numWorstClasses"] = ", ".join(
+        f"\\textsc{{{w['label']}}} ({pct(w['acc'], 0)}\\,\\%)" for w in worst
+    )
+
+
+def long_and_ensembles(nums: Numbers) -> None:
+    """150-epoch run and seed ensembles (probabilities averaged over the three seeds)."""
+    long = run_metrics("asl-transformer-long")
+    if long:
+        nums["numLongVal"] = pct(long["best_val"]["top1"])
+
+    def ens(runs: list[str], nc: int) -> dict | None:
+        files = [ROOT / "reports" / "eval" / f"{r}_test.npz" for r in runs]
+        if not all(f.exists() for f in files):
+            return None
+        ds = [np.load(f) for f in files]
+        return summary(np.mean([d["probs"].astype(np.float32) for d in ds], 0), ds[0]["y"], nc)
+
+    for key, runs, nc in (("AslEns", [f"asl-transformer-s{i}" for i in range(3)], 250),
+                          ("LsfbEns", [f"lsfb-scratch-nall-s{i}" for i in range(3)], 100)):  # fmt: skip
+        e = ens(runs, nc)
+        if e:
+            nums[f"num{key}Top"] = pct(e["top1"])
+            nums[f"num{key}FOne"] = pct(e["macro_f1"])
+
+
 def transfer_checks(nums: Numbers) -> None:
     """Linear probe and low-learning-rate fine-tuning (validation top-1, seed 0)."""
     for key, run in (("ProbeAll", "lsfb-probe-nall-s0"), ("ProbeFive", "lsfb-probe-n5-s0"),
@@ -740,6 +788,31 @@ def transfer_checks(nums: Numbers) -> None:
         nums["numLsfbLogregVal"] = pct(base["logreg"]["val"]["top1"])
         nums["numLsfbLogregTest"] = pct(base["logreg"]["test"]["top1"])
         nums["numLsfbLogregTestFOne"] = pct(base["logreg"]["test"]["macro_f1"])
+
+
+def results_figures() -> None:
+    nums = Numbers()
+    numbers_from_data(nums)
+    table_datasets()
+    table_main(nums)
+    fig_ablations(nums)
+    leakage(nums)
+    fig_training_curves()
+    fig_per_signer_and_missing()
+    table_confusions()
+    error_numbers(nums)
+    long_and_ensembles(nums)
+    significance(nums)
+    lsfb_gap_numbers(nums)
+    short_clip_numbers(nums, available())
+    transfer_checks(nums)
+    transfer_figures(nums)
+    table_transfer(nums)
+    export_tables(nums)
+    nums.write()
+
+
+LC_SIZES = [5, 10, 25, 50, 100]
 
 
 def export_tables(nums: Numbers) -> None:
