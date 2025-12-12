@@ -153,6 +153,19 @@ Reference: 68.3 % val top-1. One factor changed at a time.
 - Seed ensembles (free): ASL 67.4 % test (single 64.8), LSFB 70.9 % (single 68.3).
 - Demo now ships the from-scratch LSFB model (best on validation); browser parity 40/40.
 
+## Final latency (idle M1, one thread) and transfer checks
+
+| Model | Native FP32 / INT8 | Browser FP32 / INT8 (p50) | Size FP32 / INT8 |
+|---|---|---|---|
+| Conv-Transformer | 7.8 / 16.5 ms | 16.3 / 33.4 ms | 8.3 / 2.5 MB |
+| BiGRU | 5.7 / 5.5 ms | 7.9 / 8.1 ms | 5.5 / 4.8 MB |
+
+- Earlier measurements (≈11 / 34 ms) were inflated by training jobs running in parallel.
+- Low learning rate (2e-4) fine-tuning, 25 examples/sign: 46.3 % val (standard ft 50.6, scratch 51.5).
+- Linear probe on the frozen ASL encoder, all data: 38.3 % val.
+
+## Analyses added after review (no retraining)
+
 - `scripts/stats_tests.py`: paired bootstrap of accuracy differences (hierarchical over signers,
   or over clips within signers) and exact McNemar tests on seed ensembles.
   - ASL, Conv-Transformer vs BiGRU: +1.8 pts, 95 % interval [0.9, 2.9] with signers resampled,

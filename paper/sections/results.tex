@@ -22,3 +22,64 @@ but generalise worse (\numAslLgbmTest{}\,\% on test, \numAslLgbmDrop{} points be
 validation score, against \numAslLogregDrop{} points for the linear model). With only 14
 training signers, flexible models on hand-crafted statistics capture signer-specific cues.
 
+Both sequence models exceed the baselines by more than 20 points. The Conv-Transformer reaches
+\numTrTestTop{}\,\% top-1 on the test signers and the BiGRU \numGruTestTop{}\,\%, with the same
+top-5 accuracy of \numTrTestTopFive{}\,\%. Variation across seeds is small (below one point), whereas variation
+across signers is large: accuracy ranges from \numSignerMin{} to \numSignerMax{}\,\% over the four
+test signers, and the Conv-Transformer outperforms the BiGRU on each of them
+(\cref{fig:signers}a). The difference of \numTrGruDiff{} points is significant even when the test
+signers themselves are resampled (signer-level 95\,\% interval
+[\numTrGruCiLo{}, \numTrGruCiHi{}]; clip-level [\numTrGruClipCiLo{}, \numTrGruClipCiHi{}];
+McNemar \numTrGruMcnemar{}), although four signers remain a small sample. Validation accuracy increases until the end of the 50-epoch schedule
+(\cref{fig:curves}), yet a three times longer schedule brings no improvement
+(\cref{sec:ablations}): the late gains result from the decay of the learning rate.
+
+\begin{figure}[t]
+  \centering
+  \begin{minipage}[b]{0.36\linewidth}
+    \includegraphics[width=\linewidth]{training_curves}
+    \caption{Validation top-1 during training (mean over seeds; band: min--max).}
+    \label{fig:curves}
+  \end{minipage}\hfill
+  \begin{minipage}[b]{0.6\linewidth}
+    \centering
+    \small
+    \captionof{table}{Most frequent confusions of the Conv-Transformer on the ASL test signers
+    (seed 0). Rate: share of the clips of the true sign.}
+    \label{tab:confusions}
+    \input{tables/confusions.tex}
+  \end{minipage}
+\end{figure}
+
+\paragraph{Error analysis.}
+The most frequent confusions (\cref{tab:confusions}) are linguistically plausible. Several pairs
+are near-synonyms that share an identical or very similar sign in many ASL varieties
+(\textsc{wake}/\textsc{awake}, \textsc{pen}/\textsc{pencil}, \textsc{look}/\textsc{see}); others
+differ by a small change of handshape or location (\textsc{duck}/\textsc{goose},
+\textsc{think}/\textsc{penny}). The hardest classes, \numWorstClasses{}, are pointing and
+directional signs whose form depends on the location of the referent, which a closed-vocabulary
+classifier cannot resolve. Part of the residual error is therefore a property of the vocabulary
+rather than of the model.
+
+Landmark quality is the other main factor (\cref{fig:signers}b). Accuracy reaches
+\numMissLowAcc{}\,\% when hands are missing in at most 10\,\% of the frames, but falls to
+\numMissHighAcc{}\,\% when no hand is detected in more than half of the frames, which concerns
+\numMissHighShare{}\,\% of the test clips. Clips with a hand visible in every frame are slightly
+less accurate than the next bin because they are shorter (median of \numFullHandFrames{} frames
+instead of \numPartHandFrames{}): among them, clips of at most ten frames, which are probably
+truncated, are recognised in \numShortAcc{}\,\% of cases, against \numTypicalAcc{}\,\% for clips of
+20 to 40 frames.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{signers_missing}
+  \caption{(a) Test top-1 for each unseen signer (mean and standard deviation over seeds).
+  (b) Test top-1 as a function of the share of frames in which neither hand is detected.}
+  \label{fig:signers}
+\end{figure}
+
+\subsection{Leakage, ablations and training budget}
+\label{sec:ablations}
+
+\input{sections/results_ablations}
+

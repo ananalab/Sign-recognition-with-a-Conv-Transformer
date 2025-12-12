@@ -14,3 +14,19 @@ features) and \numAblXyz{} (depth added) points. The other variants marked with 
 (\numAblEarlyStopped{} in total) stopped between epochs 41 and 46; their effects may be slightly
 overestimated, and our compute budget did not allow re-running them.
 
+Under this caveat, the canonical dominant hand has the largest effect (\numAblNoCanonical{} points
+without it): otherwise, the same sign occupies either hand slot depending on the handedness of the
+signer and on mirroring. Velocities (\numAblNoVelocity{}), augmentation (\numAblNoAugment{}), depth
+(\numAblXyz{}, consistent with the noise of monocular depth estimates) and the hand-local shape
+features (\numAblNoHandlocal{}) have moderate effects.
+
+Three findings depart from common practice. First, the lips and the upper body bring no
+measurable gain on this vocabulary (\numAblNoLips{} without lips, \numAblHandsOnly{} with hands
+only): the 250 signs are mainly distinguished by the hands, and mouthing is presumably rare in
+dictionary-like recordings. Second, shorter sequences perform as well ($T'=32$: \numAblTThreeTwo{})
+and longer ones no better ($T'=96$: \numAblTNineSix{}), the median clip containing only 22 frames.
+Third, zero-padding with a mask outperforms resampling (\numAblPad{}): resampling stretches short
+clips and removes the duration cue, whereas padding preserves the original temporal dynamics. The
+resampled configuration, fixed before the ablations, is kept in the rest of the study, but padding
+is the better choice for future work.
+

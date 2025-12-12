@@ -815,6 +815,96 @@ def results_figures() -> None:
 LC_SIZES = [5, 10, 25, 50, 100]
 
 
+def transfer_figures(nums: Numbers) -> None:
+    """Learning curves on LSFB: from scratch vs. ASL-pretrained (mean ± std over seeds)."""
+    settings = (("lsfb-scratch", "from scratch"), ("lsfb-ft", "ASL-pretrained, fine-tuned"))
+    curves = {}
+    for k, (prefix, name) in enumerate(settings):
+        xs, ms, ss = [], [], []
+        for n in [*LC_SIZES, "all"]:
+            runs = [r for r in seeds(f"{prefix}-n{n}") if run_metrics(r)]
+            if not runs:
+                continue
+            vals = [run_metrics(r)["best_val"]["top1"] for r in runs]
+            xs.append(n)
+            m, s = mean_std(vals)
+            ms.append(100 * m)
+            ss.append(100 * s)
+        if xs:
+            curves[name] = (xs, np.array(ms), np.array(ss), viz.SERIES[k])
+    if not curves:
+        return
+    full = _load(ROOT / "reports" / "lsfb_train_per_class.json") or {}
+    xmax = full.get("median", 300)
+    fig, ax = plt.subplots(figsize=(viz.COL_W * 1.2, 2.0))
+    for name, (xs, m, s, c) in curves.items():
+        xv = np.array([xmax if x == "all" else x for x in xs], dtype=float)
+        ax.plot(xv, m, marker="o", ms=3.5, color=c, label=name)
+        ax.fill_between(xv, m - s, m + s, color=c, alpha=0.15, lw=0)
+    ax.set_xscale("log")
+    ticks = [*LC_SIZES, xmax]
+    ax.set_xticks(ticks, [*map(str, LC_SIZES), "all"])
+    ax.minorticks_off()
+    ax.set(xlabel="training examples per sign", ylabel="LSFB validation top-1 (%)")
+    ax.legend(loc="lower right")
+    fig.tight_layout()
+    viz.save(fig, FIG / "transfer_curve")
+    nums["numLcMin"] = LC_SIZES[0]
+    if all(name in curves for _, name in settings):
+        (xa, ma, _, _), (xb, mb, _, _) = curves[settings[0][1]], curves[settings[1][1]]
+        common = [x for x in xa if x in xb]
+        gains = {x: mb[xb.index(x)] - ma[xa.index(x)] for x in common}
+        if LC_SIZES[0] in gains:
+            nums["numGainFew"] = f"{gains[LC_SIZES[0]]:.1f}"
+        if "all" in gains:
+            nums["numGainAll"] = f"{gains['all']:.1f}"
+            nums["numScratchLeadAll"] = f"{-gains['all']:.1f}"
+
+
+def table_transfer(nums: Numbers) -> None:
+    """LSFB with all training data: baselines, from scratch and ASL-pretrained (mean ± std)."""
+    base = _load(ROOT / "reports" / "baselines" / "lsfb_isol_lsfb_isol_signer.json")
+    lines = []
+    if base:
+        c = base["chance"]
+        lines.append(f"Chance & {pct(c['top1'])} & {pct(c['top1'])} & {pct(c['top5'])} & -- \\\\")
+        for key, name in (
+            ("logreg", "Statistics + log.\\ regression"),
+            ("lgbm", "Statistics + LightGBM"),
+        ):
+            if key in base:
+                b = base[key]
+                lines.append(f"{name} & {pct(b['val']['top1'])} & {pct(b['test']['top1'])} & "
+                             f"{pct(b['test']['top5'])} & {pct(b['test']['macro_f1'])} \\\\")  # fmt: skip
+        lines.append("\\midrule")
+    settings = (("lsfb-scratch-nall", "Conv-Transformer, from scratch", "Scratch"),
+                ("lsfb-ft-nall", "\\quad ASL-pretrained, fine-tuned", "Ft"),
+                ("lsfb-ftfreeze-nall", "\\quad ASL-pretrained, encoder frozen 5 epochs", "Freeze"))  # fmt: skip
+    for prefix, name, key in settings:
+        runs = seeds(prefix)
+        if not runs:
+            continue
+        val = [run_metrics(r)["best_val"]["top1"] for r in runs]
+        tests = [t for t in (eval_report(r, "test") for r in runs) if t]
+        cells = [pm(val)]
+        if tests:
+            cells += [pm([t["top1"] for t in tests]), pm([t["top5"] for t in tests]),
+                      pm([t["macro_f1"] for t in tests])]  # fmt: skip
+            nums[f"numLsfb{key}Test"] = pct(mean_std([t["top1"] for t in tests])[0])
+            nums[f"numLsfb{key}TestFOne"] = pct(mean_std([t["macro_f1"] for t in tests])[0])
+        else:
+            cells += ["--"] * 3
+        nums[f"numLsfb{key}Val"] = pct(mean_std(val)[0])
+        lines.append(f"{name} & " + " & ".join(cells) + " \\\\")
+    (TAB / "transfer.tex").write_text(
+        "\\begin{tabular}{lcccc}\n\\toprule\n"
+        " & Validation & \\multicolumn{3}{c}{Test (40 unseen signers)} \\\\\n\\cmidrule(lr){2-2}\\cmidrule(lr){3-5}\n"
+        "Model & Top-1 & Top-1 & Top-5 & Macro-F1 \\\\\n\\midrule\n"
+        + "\n".join(lines)
+        + "\n\\bottomrule\n\\end{tabular}\n"
+    )
+
+
 def export_tables(nums: Numbers) -> None:
     """Size and latency (native and browser) of FP32 / INT8 models; INT8 accuracy if exported."""
     lat = _load(ROOT / "reports" / "latency.json")
@@ -861,3 +951,18 @@ def export_tables(nums: Numbers) -> None:
             nums["numGruBrowser"] = f"{g.get('browser', g['native'])['p50_ms']:.0f}"
 
 
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--only", choices=["data", "results"], default=None)
+    a = ap.parse_args()
+    viz.paper_style()
+    FIG.mkdir(parents=True, exist_ok=True)
+    TAB.mkdir(parents=True, exist_ok=True)
+    if a.only in (None, "data"):
+        data_figures()
+    if a.only in (None, "results"):
+        results_figures()
+
+
+if __name__ == "__main__":
+    main()
