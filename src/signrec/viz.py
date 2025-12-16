@@ -123,6 +123,25 @@ def _setup(ax: plt.Axes, bounds: tuple[float, float, float, float]) -> None:
     ax.axis("off")
 
 
+def plot_strips(
+    seqs: list[tuple[str, np.ndarray]], n: int = 8, width: float = FULL_W
+) -> plt.Figure:
+    """One row per ``(title, sequence)``, ``n`` evenly spaced frames per row."""
+    rows = len(seqs)
+    fig, axes = plt.subplots(rows, n, figsize=(width, rows * width / n * 1.25), squeeze=False)
+    for r, (title, seq) in enumerate(seqs):
+        idx = np.linspace(0, len(seq) - 1, n).round().astype(int)
+        b = _bounds(seq)
+        for ax, i in zip(axes[r], idx, strict=True):
+            draw_frame(ax, seq[i], lw=0.9, point_size=1.5)
+            _setup(ax, b)
+            ax.set_title(f"t = {i}", fontsize=6.5, color=INK_2, pad=2)
+        axes[r, 0].text(-0.15, 0.5, title, transform=axes[r, 0].transAxes, rotation=90,
+                        ha="right", va="center", fontsize=7.5)  # fmt: skip
+    fig.subplots_adjust(wspace=0.05, hspace=0.25, left=0.04, right=1.0, top=0.93, bottom=0.0)
+    return fig
+
+
 def save_gif(seq: np.ndarray, path: str | Path, title: str = "", fps: int = 15) -> None:
     """Animated skeleton GIF (README / error analysis)."""
     fig, ax = plt.subplots(figsize=(3, 3))

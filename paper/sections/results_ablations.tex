@@ -38,3 +38,11 @@ by contrast, improves test top-1 to \numAslEnsTop{}\,\% on ASL (\numTrTestTopMea
 single model) and to \numLsfbEnsTop{}\,\% on LSFB (\numLsfbScratchTest{}\,\%), at three times the
 inference cost.
 
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.62\linewidth]{ablations}
+  \caption{One-factor ablations of the Conv-Transformer on the ASL validation signers (seed 0).
+  $\dagger$: early stopping ended the run before the end of the 50-epoch schedule (epochs 41--46),
+  so the effect may be overestimated.}
+  \label{fig:ablations}
+\end{figure}
