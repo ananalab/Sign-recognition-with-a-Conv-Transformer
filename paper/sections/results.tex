@@ -83,3 +83,22 @@ truncated, are recognised in \numShortAcc{}\,\% of cases, against \numTypicalAcc
 
 \input{sections/results_ablations}
 
+\subsection{Cross-lingual transfer to LSFB}
+\label{sec:transfer}
+
+\input{sections/results_transfer}
+
+\subsection{Efficiency and deployment}
+\label{sec:efficiency}
+
+\begin{table}[t]
+  \centering
+  \caption{Model size and single-sign latency on an Apple M1 CPU (one thread) after export to
+  ONNX. Native: ONNX Runtime; browser: ONNX Runtime Web (WebAssembly) in Chromium. INT8: dynamic
+  quantisation of the weight matrices, with the input projection kept in FP32. Validation top-1
+  on 2{,}000 ASL validation clips.}
+  \label{tab:export}
+  \small
+  \input{tables/export.tex}
+\end{table}
+

@@ -30,3 +30,11 @@ clips and removes the duration cue, whereas padding preserves the original tempo
 resampled configuration, fixed before the ablations, is kept in the rest of the study, but padding
 is the better choice for future work.
 
+\paragraph{Training budget and ensembles.}
+Training the Conv-Transformer for 150 instead of 50 epochs does not help (\numLongVal{}\,\% against
+\numRefValTop{}\,\% on validation): the late rise of the curves in \cref{fig:curves} reflects the
+annealing of the learning rate, not under-training. Averaging the predictions of the three seeds,
+by contrast, improves test top-1 to \numAslEnsTop{}\,\% on ASL (\numTrTestTopMean{}\,\% for a
+single model) and to \numLsfbEnsTop{}\,\% on LSFB (\numLsfbScratchTest{}\,\%), at three times the
+inference cost.
+

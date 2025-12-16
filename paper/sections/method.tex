@@ -116,3 +116,11 @@ hand displacement below $0.012$ shoulder widths per frame) for fourteen frames, 
 frames. The segment is then preprocessed by the JavaScript port and classified by the ONNX model
 with ONNX Runtime Web \citep{onnxruntime} (WebAssembly backend).
 
+Mismatches between training and deployment preprocessing are a common cause of failure in
+deployed systems. We therefore generate test fixtures from the Python implementation (missing
+hands, mirrored input, missing shoulders, single-frame and long clips, padding, depth features)
+and verify that the JavaScript port reproduces the features within \numJsParity{}, i.e.\ at
+single-precision accuracy. We also test the complete browser path: executed in headless Chromium
+through the code of the demo, the LSFB test clips shipped with the demo receive the same top-1
+prediction as with the PyTorch checkpoint (\numBrowserSame{} clips), with probabilities differing
+by at most $\numBrowserDiff{}$.
