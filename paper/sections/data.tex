@@ -53,3 +53,46 @@ and by the actual frame ratio for webcam and video input in the demo. After this
 the normalisation of \cref{sec:preprocessing}, both corpora share the same body frame
 (\cref{fig:normalisation}).
 
+\paragraph{Comparison of the corpora.}
+\Cref{fig:data-overview} contrasts the two datasets. ASL classes are balanced and signs are
+recorded in isolation. LSFB class frequencies span more than an order of magnitude, and clips are
+shorter (median \numLsfbDurMedian\,s against \numAslDurMedian\,s) because
+conversational signs are co-articulated with their neighbours. Missing hands are far more frequent
+in ASL (\cref{fig:missing}): one hand is absent from most frames, and neither is detected in
+\numAslNoHandPct{}\,\% of them, against \numLsfbNoHandPct{}\,\% in LSFB. These frames are not
+idle: in a random sample of \numHandlessSample{} clips, only \numHandlessOutside{}\,\% of the
+frames without any hand lie before or after the sign. The others fall within it, when fast motion
+or the narrow smartphone framing defeats the hand detector. \Cref{fig:examples} shows one clip of each dataset.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{dataset_overview}
+  \caption{Dataset overview. (a) Examples per class, sorted; (b) distribution of clip durations;
+  (c) examples per signer, sorted.}
+  \label{fig:data-overview}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \begin{minipage}[b]{0.42\linewidth}
+    \includegraphics[width=\linewidth]{missing_parts}
+    \caption{Share of frames in which a body part is not detected.}
+    \label{fig:missing}
+  \end{minipage}\hfill
+  \begin{minipage}[b]{0.54\linewidth}
+    \includegraphics[width=\linewidth]{examples}
+    \caption{One ASL and one LSFB clip, eight evenly spaced frames (hand slots in orange and
+    blue, lips in pink, upper body in grey).}
+    \label{fig:examples}
+  \end{minipage}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{normalisation}
+  \caption{Per-clip mean position of the nose, the shoulders and the dominant wrist for 400 random
+  clips of each corpus. (a) Image coordinates; (b) body frame without aspect correction, where the
+  LSFB nose lies twice as high as the ASL one; (c) body frame with aspect correction, where both
+  corpora align.}
+  \label{fig:normalisation}
+\end{figure}
