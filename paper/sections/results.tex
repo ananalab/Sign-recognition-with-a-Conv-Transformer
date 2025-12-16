@@ -102,3 +102,31 @@ truncated, are recognised in \numShortAcc{}\,\% of cases, against \numTypicalAcc
   \input{tables/export.tex}
 \end{table}
 
+\paragraph{Latency.}
+\Cref{tab:export} summarises the inference cost. Preprocessing takes about 0.3\,ms per clip in
+Python, and each sign is classified once, when the segmenter detects its end. The
+Conv-Transformer then requires \numFpNative{}\,ms natively and \numFpBrowser{}\,ms in the browser,
+and the BiGRU \numGruBrowser{}\,ms in the browser. Landmark extraction by MediaPipe, which runs on
+every frame, dominates the cost of the live demo.
+
+\paragraph{Quantisation.}
+Naive dynamic INT8 quantisation reduces the validation top-1 of the Conv-Transformer from 68\,\% to
+34\,\%. The cause is a small number of very large inputs: when a detected hand is tiny, the
+hand-local features (\cref{sec:preprocessing}) are divided by a near-zero length and reach values
+close to 200, while 99.9\,\% of them remain below 6.2. A per-tensor dynamic scale on the first
+layer then destroys the resolution of all other inputs. Keeping this single layer in FP32 fully
+restores accuracy. The quantised model is \numIntShrink{}$\times$ smaller but
+\numIntSlowdown{}$\times$ \emph{slower} on CPU, natively and in WebAssembly: at this scale,
+quantising and dequantising activations around many small matrix products costs more than integer
+arithmetic saves. Since the demo already downloads about 25\,MB for MediaPipe, it ships the FP32
+model.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{demo}
+  \caption{Browser demo replaying an LSFB-ISOL clip of an unseen test signer: skeleton, top-5
+  predictions with the true sign, best-recognised signs, history and vocabulary. The demo ships
+  one test clip for each of 40 glosses, of which the model recognises \numExampleAcc{}\,\%. With a
+  webcam, signs are segmented automatically from hand presence and motion.}
+  \label{fig:demo}
+\end{figure}
